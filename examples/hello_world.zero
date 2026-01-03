@@ -1,0 +1,9 @@
+// Hello World Example - Testing the print function
+use display
+
+fn main() {
+    print("Hello, World!")
+    print("Welcome to Zero - A high-performance ML language")
+    print(1024)
+    print("Compilation successful!")
+}

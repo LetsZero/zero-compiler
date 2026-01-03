@@ -1,0 +1,11 @@
+// Zero Display Module - Standard Library
+// This module provides basic output functionality
+
+// External C++ runtime function declaration
+extern fn zero_print(msg: string)
+
+// User-facing print function
+// Outputs a message to stdout with automatic newline
+fn print(msg: string) {
+    zero_print(msg)
+}
