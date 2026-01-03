@@ -1,11 +1,18 @@
 // Zero Display Module - Standard Library
 // This module provides basic output functionality
 
-// External C++ runtime function declaration
+// External C++ runtime function declarations
 extern fn zero_print(msg: string)
+extern fn zero_log(msg: string, color: string, ansi: string)
 
 // User-facing print function
 // Outputs a message to stdout with automatic newline
 fn print(msg: string) {
     zero_print(msg)
+}
+
+// User-facing log function
+// Outputs a message with optional color formatting
+fn log(msg: string, color: string = "", ansi: string = "") {
+    zero_log(msg, color, ansi)
 }
