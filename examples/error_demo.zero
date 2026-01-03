@@ -1,0 +1,32 @@
+// Error Handling Example - Demonstrating Zero's diagnostic system
+use display
+
+fn main() {
+    print("=== Error Handling Demo ===")
+    print("")
+    
+    // This example shows how Zero reports errors
+    // Uncomment the lines below to see different error types
+    
+    // Syntax Error Example:
+    // let status = true
+    // if statux {  // Typo: should be 'status'
+    //     log("Status is true", color="green")
+    // }
+    
+    // Type Error Example:
+    // let x = "hello"
+    // let y = 42
+    // let z = x + y  // Cannot add string and int
+    
+    // Runtime Error Example:
+    // let divisor = 0
+    // let result = 100 / divisor  // Division by zero
+    
+    print("No errors in this version!")
+    print("Uncomment the examples above to see error reporting")
+    print("")
+    
+    log("Tip: Zero uses 'Frame & Focus' error format", color="cyan")
+    log("Errors show context, location, and helpful suggestions", color="cyan")
+}

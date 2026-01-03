@@ -1,0 +1,43 @@
+// Logging Example - Advanced usage of the log function
+use display
+
+fn main() {
+    print("=== Advanced Logging Examples ===")
+    print("")
+    
+    // Status messages with semantic colors
+    print("--- Build Process ---")
+    log("Starting compilation...", color="blue")
+    log("Parsing source files...", color="blue")
+    log("Type checking passed", color="green")
+    log("Generating LLVM IR...", color="blue")
+    log("Optimization level: O2", color="cyan")
+    log("Build successful!", color="green")
+    print("")
+    
+    // Warning and error messages
+    print("--- Diagnostics ---")
+    log("Warning: Unused variable 'temp'", color="yellow")
+    log("Warning: Function 'old_api' is deprecated", color="yellow")
+    log("Error: Cannot find module 'missing_lib'", color="red")
+    print("")
+    
+    // Debug information
+    print("--- Debug Info ---")
+    log("Memory allocated: 1024 MB", color="cyan")
+    log("Threads: 8", color="cyan")
+    log("Cache hits: 95%", color="cyan")
+    print("")
+    
+    // Custom ANSI formatting
+    print("--- Custom Formatting ---")
+    log("Bold text", ansi="\x1b[1m")
+    log("Italic text", ansi="\x1b[3m")
+    log("Underlined text", ansi="\x1b[4m")
+    log("Bold + Red", ansi="\x1b[1;31m")
+    log("Bold + Green + Underline", ansi="\x1b[1;4;32m")
+    print("")
+    
+    // Success summary
+    log("All logging features demonstrated!", color="magenta")
+}

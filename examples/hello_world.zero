@@ -1,9 +1,38 @@
-// Hello World Example - Testing the print function
+// Hello World Example - Demonstrating Zero Display Module
 use display
 
 fn main() {
+    // Basic print examples
+    print("=== Zero Display Module Demo ===")
+    print("")
+    
+    // Print with different types
     print("Hello, World!")
-    print("Welcome to Zero - A high-performance ML language")
-    print(1024)
-    print("Compilation successful!")
+    print("Zero is a high-performance ML language")
+    print(2024)
+    print("")
+    
+    // Log with named colors
+    print("=== Colored Logging ===")
+    log("Success: Compilation complete", color="green")
+    log("Warning: Deprecated function used", color="yellow")
+    log("Error: Type mismatch detected", color="red")
+    log("Info: Loading model weights...", color="blue")
+    log("Debug: Variable x = 42", color="cyan")
+    log("Important: Breaking change in v2.0", color="magenta")
+    print("")
+    
+    // Log with direct ANSI codes
+    print("=== Advanced Formatting ===")
+    log("Bold and red text", ansi="\x1b[1;31m")
+    log("Underlined green text", ansi="\x1b[4;32m")
+    print("")
+    
+    // Plain log (no color)
+    print("=== Plain Logging ===")
+    log("This is a plain log message")
+    print("")
+    
+    print("=== Demo Complete ===")
 }
+
