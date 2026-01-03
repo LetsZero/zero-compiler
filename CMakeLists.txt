@@ -36,6 +36,7 @@ include_directories(
 
 # Add subdirectories
 add_subdirectory(runtime)
+add_subdirectory(src/diagnostics)
 add_subdirectory(tests)
 
 # Output directories
