@@ -1,0 +1,3 @@
+[submodule "external/core-runtime"]
+	path = external/core-runtime
+	url = https://github.com/LetsZero/core-runtime
