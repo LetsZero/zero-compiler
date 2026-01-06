@@ -1,102 +1,124 @@
-# Zero Print Function - Implementation Notes
+# Zero Runtime - Print Functions
 
 ## Overview
 
-Successfully implemented the `print` function for the Zero display module as specified in DISPLAY_MODULE.md.
+The Zero runtime provides a comprehensive set of print functions with support for:
 
-## Implementation Summary
+- **F-Strings**: String interpolation
+- **Trace Mode**: Debug output with `[TRACE]` prefix
+- **Pipe Operator**: Print piped values with labels
 
-### ✅ Runtime Layer (C++)
+---
 
-**File: `runtime/runtime.h`**
+## API Reference
 
-- Declares `zero_print(const char* message)` with C linkage
-- Uses `extern "C"` for LLVM compatibility
-- Includes proper header guards
+### Basic Functions
 
-**File: `runtime/runtime.cpp`**
+#### `zero_print(message)`
 
-- Implements `zero_print` using `std::cout`
-- Automatically appends newline (`std::endl`)
-- Includes null pointer safety check
-- No color support (plain text only)
+Basic print to stdout with automatic newline.
 
-**File: `runtime/CMakeLists.txt`**
+```cpp
+void zero_print(const char* message);
+```
 
-- Builds static library `libzerort.a`
-- Uses C++17 standard
-- Outputs to `build/lib/` directory
-- Includes compiler warnings for code quality
+#### `zero_log(message, color, ansi)`
 
-### ✅ Standard Library Layer (Zero)
+Colored output with ANSI support.
 
-**File: `stdlib/display.zero`**
+```cpp
+void zero_log(const char* message, const char* color, const char* ansi);
+```
 
-- Declares `extern fn zero_print(msg: string)` to link to C++ runtime
-- Provides user-facing `fn print(msg: string)` wrapper
-- Clean, simple API for Zero programs
+**Colors**: `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 
-### ✅ Examples
+---
 
-**File: `examples/hello_world.zero`**
+### Enhanced Print Functions
 
-- Demonstrates basic print usage
-- Shows printing strings and numbers
-- Uses `use display` module import
+#### `zero_print_traced(message, trace)`
 
-### ✅ Build System
+Print with optional trace prefix.
 
-**File: `CMakeLists.txt`** (root)
+```cpp
+void zero_print_traced(const char* message, bool trace);
+```
 
-- Configures C++17 project
-- Finds and integrates LLVM
-- Adds runtime subdirectory
-- Sets up include paths
+| `trace` | Output            |
+| ------- | ----------------- |
+| `false` | `message`         |
+| `true`  | `[TRACE] message` |
 
-## Key Design Decisions
+#### `zero_print_piped(value, label)`
 
-1. **Null Safety**: Added null pointer check in `zero_print` to prevent crashes
-2. **C Linkage**: Used `extern "C"` to ensure LLVM can call the function
-3. **Static Library**: Built as `libzerort.a` for easy linking
-4. **Automatic Newline**: Uses `std::endl` for automatic flushing and newline
+Print piped value with optional label.
 
-## Next Steps
+```cpp
+void zero_print_piped(const char* value, const char* label);
+```
 
-To complete the display module:
+| Label             | Output          |
+| ----------------- | --------------- |
+| `nullptr` or `""` | `value`         |
+| `"result"`        | `result: value` |
 
-1. ✅ Implement `print` function
-2. ⏭️ Implement `log` function with color support
-3. ⏭️ Implement error formatting system ("Frame & Focus")
-4. ⏭️ Build lexer, parser, and codegen to actually compile Zero code
+#### `zero_print_fstring(parts, count)`
+
+Print concatenated f-string parts.
+
+```cpp
+void zero_print_fstring(const char** parts, int count);
+```
+
+#### `zero_print_ex(message, mode, extra)`
+
+Unified API for all print modes.
+
+```cpp
+void zero_print_ex(const char* message, int mode, const char* extra);
+```
+
+| Mode | Description                   |
+| ---- | ----------------------------- |
+| `0`  | Normal print                  |
+| `1`  | Trace mode (`[TRACE]` prefix) |
+| `2`  | Piped mode (`extra` = label)  |
+
+---
+
+## Error Handling
+
+All functions include null-pointer safety:
+
+| Error              | Message                                               |
+| ------------------ | ----------------------------------------------------- |
+| Null message       | `[RUNTIME ERROR] Attempted to print null pointer`     |
+| Null value (piped) | `[RUNTIME ERROR] Attempted to print null piped value` |
+| Invalid f-string   | `[RUNTIME ERROR] Invalid f-string parts`              |
+| Unknown color      | `[RUNTIME WARNING] Unknown color name: {name}`        |
+
+---
+
+## Zero Syntax (Planned)
+
+```zero
+// Normal
+print("Hello")
+
+// F-String
+print(f"Value: {x}")
+
+// Trace
+print("Debug info", trace=true)
+
+// Pipe Operator
+result |> print(msg="output")
+```
+
+---
 
 ## Testing
 
-Once the compiler pipeline is complete, test with:
-
-```bash
-zero run examples/hello_world.zero
-```
-
-Expected output:
-
-```
-Hello, World!
-Welcome to Zero - A high-performance ML language
-1024
-Compilation successful!
-```
-
-## File Structure Created
-
-```
-zero-compiler/
-├── CMakeLists.txt              ✅ Created
-├── runtime/
-│   ├── runtime.h               ✅ Created
-│   ├── runtime.cpp             ✅ Created
-│   └── CMakeLists.txt          ✅ Created
-├── stdlib/
-│   └── display.zero            ✅ Created
-└── examples/
-    └── hello_world.zero        ✅ Created
+```powershell
+.\build\bin\Debug\test_print_enhanced.exe
 ```
