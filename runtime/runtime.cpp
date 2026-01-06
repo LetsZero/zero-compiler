@@ -4,9 +4,9 @@
 #include <cstring>
 
 /**
- * Implementation of zero_print function
+ * implementation of zero_print function
  * 
- * This function is called from compiled Zero code via LLVM.
+ * This function is called from compiled Zero code.
  * It provides basic stdout functionality with automatic newline appending.
  */
 extern "C" void zero_print(const char* message) {
