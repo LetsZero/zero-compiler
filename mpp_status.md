@@ -179,13 +179,13 @@
 | 4. Parser            | 5      | 0       | 0      |
 | 5. AST               | 9      | 0       | 0      |
 | 6. Type System       | 4      | 0       | 0      |
-| 7. Semantic Analysis | 0      | 0       | 5      |
+| 7. Semantic Analysis | 5      | 0       | 0      |
 | 8. Zero IR           | 0      | 0       | 12     |
 | 9. CPU Backend       | 0      | 0       | 2      |
 | 10. Tensor Runtime   | 6      | 0       | 0      |
 | 11. CLI Driver       | 0      | 0       | 3      |
 | 12. Tests            | 2      | 0       | 5      |
-| **TOTAL**            | **41** | **0**   | **27** |
+| **TOTAL**            | **46** | **0**   | **22** |
 
 ---
 

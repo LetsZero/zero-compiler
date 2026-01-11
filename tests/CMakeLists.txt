@@ -88,3 +88,16 @@ target_include_directories(test_types PRIVATE ${CMAKE_SOURCE_DIR}/include)
 set_target_properties(test_types PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Test executable for semantic analysis
+add_executable(test_sema
+    test_sema.cpp
+)
+
+# Link against sema library
+target_link_libraries(test_sema PRIVATE zerosema)
+
+# Set output directory
+set_target_properties(test_sema PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
