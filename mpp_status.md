@@ -81,12 +81,12 @@
 
 ## 6. Type System (ABSOLUTE MINIMUM)
 
-| Item   | Status  | Notes |
-| ------ | ------- | ----- |
-| Int    | ❌ TODO | -     |
-| Float  | ❌ TODO | -     |
-| Tensor | ❌ TODO | -     |
-| Void   | ❌ TODO | -     |
+| Item   | Status  | Notes                     |
+| ------ | ------- | ------------------------- |
+| Int    | ✅ DONE | `types::TypeKind::INT`    |
+| Float  | ✅ DONE | `types::TypeKind::FLOAT`  |
+| Tensor | ✅ DONE | `types::TypeKind::TENSOR` |
+| Void   | ✅ DONE | `types::TypeKind::VOID`   |
 
 ---
 
@@ -178,14 +178,14 @@
 | 3. Lexer             | 5      | 0       | 0      |
 | 4. Parser            | 5      | 0       | 0      |
 | 5. AST               | 9      | 0       | 0      |
-| 6. Type System       | 0      | 0       | 4      |
+| 6. Type System       | 4      | 0       | 0      |
 | 7. Semantic Analysis | 0      | 0       | 5      |
 | 8. Zero IR           | 0      | 0       | 12     |
 | 9. CPU Backend       | 0      | 0       | 2      |
 | 10. Tensor Runtime   | 6      | 0       | 0      |
 | 11. CLI Driver       | 0      | 0       | 3      |
 | 12. Tests            | 2      | 0       | 5      |
-| **TOTAL**            | **37** | **0**   | **31** |
+| **TOTAL**            | **41** | **0**   | **27** |
 
 ---
 

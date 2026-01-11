@@ -75,3 +75,16 @@ target_link_libraries(test_parser PRIVATE zeroparse)
 set_target_properties(test_parser PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Test executable for types
+add_executable(test_types
+    test_types.cpp
+)
+
+# Header-only, just need include path
+target_include_directories(test_types PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Set output directory
+set_target_properties(test_types PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
