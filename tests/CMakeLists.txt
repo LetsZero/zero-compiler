@@ -36,3 +36,16 @@ target_link_libraries(test_print_enhanced PRIVATE zerort)
 set_target_properties(test_print_enhanced PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Test executable for source management
+add_executable(test_source
+    test_source.cpp
+)
+
+# Link against the source library
+target_link_libraries(test_source PRIVATE zerosrc)
+
+# Set output directory
+set_target_properties(test_source PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)

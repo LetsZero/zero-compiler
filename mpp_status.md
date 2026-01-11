@@ -28,12 +28,12 @@
 
 ## 2. Source Management
 
-| Item                       | Status     | Notes                                   |
-| -------------------------- | ---------- | --------------------------------------- |
-| Source file loader         | ❌ TODO    | Need to implement                       |
-| Source ID                  | ❌ TODO    | Need to implement                       |
-| Line/column mapping        | 🟡 PARTIAL | Diagnostics has `SourceLocation` struct |
-| Span (start, end, file_id) | ❌ TODO    | Need to implement                       |
+| Item                       | Status  | Notes                                         |
+| -------------------------- | ------- | --------------------------------------------- |
+| Source file loader         | ✅ DONE | `source::SourceManager::load()` in source.hpp |
+| Source ID                  | ✅ DONE | `source::SourceID` type (uint32_t)            |
+| Line/column mapping        | ✅ DONE | `SourceFile::offset_to_line_col()`            |
+| Span (start, end, file_id) | ✅ DONE | `source::Span` struct with merge support      |
 
 ---
 
@@ -174,7 +174,7 @@
 | Category             | Done   | Partial | TODO   |
 | -------------------- | ------ | ------- | ------ |
 | 1. Core Runtime      | 6      | 0       | 0      |
-| 2. Source Management | 0      | 1       | 3      |
+| 2. Source Management | 4      | 0       | 0      |
 | 3. Lexer             | 0      | 0       | 5      |
 | 4. Parser            | 0      | 0       | 5      |
 | 5. AST               | 0      | 0       | 9      |
@@ -185,14 +185,14 @@
 | 10. Tensor Runtime   | 6      | 0       | 0      |
 | 11. CLI Driver       | 0      | 0       | 3      |
 | 12. Tests            | 2      | 0       | 5      |
-| **TOTAL**            | **14** | **1**   | **53** |
+| **TOTAL**            | **18** | **0**   | **50** |
 
 ---
 
 ## Immediate Next Steps (Priority Order)
 
 1. ~~**Complete Core Runtime** - Add `zero_alloc`, `zero_free`~~ ✅ (via core-runtime)
-2. **Source Management** - File loader, SourceID, Span
+2. ~~**Source Management** - File loader, SourceID, Span~~ ✅
 3. **Lexer** - Minimal tokens for NN code
 4. **Parser** - Recursive descent for core grammar
 5. **AST** - Plain structs for nodes
