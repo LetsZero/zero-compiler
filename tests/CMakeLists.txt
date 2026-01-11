@@ -49,3 +49,16 @@ target_link_libraries(test_source PRIVATE zerosrc)
 set_target_properties(test_source PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Test executable for lexer
+add_executable(test_lexer
+    test_lexer.cpp
+)
+
+# Link against the lexer library (which links zerosrc)
+target_link_libraries(test_lexer PRIVATE zerolex)
+
+# Set output directory
+set_target_properties(test_lexer PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)

@@ -39,15 +39,15 @@
 
 ## 3. Lexer (MINIMAL)
 
-| Item                            | Status  | Notes                       |
-| ------------------------------- | ------- | --------------------------- |
-| Identifiers                     | ❌ TODO | Was implemented but deleted |
-| Numbers (int, float)            | ❌ TODO | Was implemented but deleted |
-| Keywords: `fn`, `let`, `return` | ❌ TODO | Was implemented but deleted |
-| Operators: `+ - * / =`          | ❌ TODO | Was implemented but deleted |
-| Delimiters: `() {} ,`           | ❌ TODO | Was implemented but deleted |
+| Item                            | Status  | Notes                             |
+| ------------------------------- | ------- | --------------------------------- |
+| Identifiers                     | ✅ DONE | `lexer::Lexer::scan_identifier()` |
+| Numbers (int, float)            | ✅ DONE | `INT_LIT`, `FLOAT_LIT` tokens     |
+| Keywords: `fn`, `let`, `return` | ✅ DONE | + `if`, `else`, `while`           |
+| Operators: `+ - * / =`          | ✅ DONE | + `==`, `!=`, `<`, `>`, etc.      |
+| Delimiters: `() {} ,`           | ✅ DONE | + `[]`, `:`, `;`, `->`            |
 
-**Note**: Lexer was previously implemented for F-strings/pipes but was removed. Need to re-implement with MPP scope.
+**Note**: Full lexer implementation with 11 passing tests.
 
 ---
 
@@ -175,7 +175,7 @@
 | -------------------- | ------ | ------- | ------ |
 | 1. Core Runtime      | 6      | 0       | 0      |
 | 2. Source Management | 4      | 0       | 0      |
-| 3. Lexer             | 0      | 0       | 5      |
+| 3. Lexer             | 5      | 0       | 0      |
 | 4. Parser            | 0      | 0       | 5      |
 | 5. AST               | 0      | 0       | 9      |
 | 6. Type System       | 0      | 0       | 4      |
@@ -185,7 +185,7 @@
 | 10. Tensor Runtime   | 6      | 0       | 0      |
 | 11. CLI Driver       | 0      | 0       | 3      |
 | 12. Tests            | 2      | 0       | 5      |
-| **TOTAL**            | **18** | **0**   | **50** |
+| **TOTAL**            | **23** | **0**   | **45** |
 
 ---
 
