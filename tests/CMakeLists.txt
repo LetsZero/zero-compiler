@@ -101,3 +101,16 @@ target_link_libraries(test_sema PRIVATE zerosema)
 set_target_properties(test_sema PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Test executable for IR
+add_executable(test_ir
+    test_ir.cpp
+)
+
+# Link against IR library
+target_link_libraries(test_ir PRIVATE zeroir)
+
+# Set output directory
+set_target_properties(test_ir PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)

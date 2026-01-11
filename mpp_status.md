@@ -104,20 +104,20 @@
 
 ## 8. Zero IR (ZIR)
 
-| Item                    | Status  | Notes |
-| ----------------------- | ------- | ----- |
-| SSA form                | ❌ TODO | -     |
-| Text dump (inspectable) | ❌ TODO | -     |
-| `const`                 | ❌ TODO | -     |
-| `alloc`                 | ❌ TODO | -     |
-| `load`                  | ❌ TODO | -     |
-| `store`                 | ❌ TODO | -     |
-| `add`, `mul`            | ❌ TODO | -     |
-| `call`                  | ❌ TODO | -     |
-| `return`                | ❌ TODO | -     |
-| `tensor_create`         | ❌ TODO | -     |
-| `tensor_matmul`         | ❌ TODO | -     |
-| `tensor_add`            | ❌ TODO | -     |
+| Item                    | Status  | Notes                       |
+| ----------------------- | ------- | --------------------------- |
+| SSA form                | ✅ DONE | `ir::Value`, `ir::Function` |
+| Text dump (inspectable) | ✅ DONE | `print_module()`            |
+| `const`                 | ✅ DONE | `CONST_INT`, `CONST_FLOAT`  |
+| `alloc`                 | ✅ DONE | `ALLOCA` opcode             |
+| `load`                  | ✅ DONE | `LOAD` opcode               |
+| `store`                 | ✅ DONE | `STORE` opcode              |
+| `add`, `mul`            | ✅ DONE | `ADD`, `SUB`, `MUL`, `DIV`  |
+| `call`                  | ✅ DONE | `CALL` opcode               |
+| `return`                | ✅ DONE | `RET` opcode                |
+| `tensor_create`         | ✅ DONE | `TENSOR_ALLOC` opcode       |
+| `tensor_matmul`         | ✅ DONE | `TENSOR_MATMUL` opcode      |
+| `tensor_add`            | ✅ DONE | `TENSOR_ADD` opcode         |
 
 ---
 
@@ -180,12 +180,12 @@
 | 5. AST               | 9      | 0       | 0      |
 | 6. Type System       | 4      | 0       | 0      |
 | 7. Semantic Analysis | 5      | 0       | 0      |
-| 8. Zero IR           | 0      | 0       | 12     |
+| 8. Zero IR           | 12     | 0       | 0      |
 | 9. CPU Backend       | 0      | 0       | 2      |
 | 10. Tensor Runtime   | 6      | 0       | 0      |
 | 11. CLI Driver       | 0      | 0       | 3      |
 | 12. Tests            | 2      | 0       | 5      |
-| **TOTAL**            | **46** | **0**   | **22** |
+| **TOTAL**            | **58** | **0**   | **10** |
 
 ---
 
