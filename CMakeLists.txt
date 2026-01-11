@@ -33,6 +33,7 @@ add_subdirectory(src/lexer)
 add_subdirectory(src/parser)
 add_subdirectory(src/sema)
 add_subdirectory(src/ir)
+add_subdirectory(src/backend)
 add_subdirectory(src/diagnostics)
 add_subdirectory(tests)
 

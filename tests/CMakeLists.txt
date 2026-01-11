@@ -114,3 +114,16 @@ target_link_libraries(test_ir PRIVATE zeroir)
 set_target_properties(test_ir PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Test executable for backend
+add_executable(test_backend
+    test_backend.cpp
+)
+
+# Link against backend library
+target_link_libraries(test_backend PRIVATE zerobackend)
+
+# Set output directory
+set_target_properties(test_backend PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)

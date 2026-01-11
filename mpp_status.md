@@ -123,10 +123,10 @@
 
 ## 9. CPU Backend
 
-| Item                         | Status  | Notes |
-| ---------------------------- | ------- | ----- |
-| ZIR Interpreter              | ❌ TODO | -     |
-| Runtime tensor ops execution | ❌ TODO | -     |
+| Item                         | Status  | Notes                        |
+| ---------------------------- | ------- | ---------------------------- |
+| ZIR Interpreter              | ✅ DONE | `backend::Interpreter` class |
+| Runtime tensor ops execution | ✅ DONE | Linked to core-runtime       |
 
 ---
 
@@ -171,21 +171,21 @@
 
 ## Summary
 
-| Category             | Done   | Partial | TODO   |
-| -------------------- | ------ | ------- | ------ |
-| 1. Core Runtime      | 6      | 0       | 0      |
-| 2. Source Management | 4      | 0       | 0      |
-| 3. Lexer             | 5      | 0       | 0      |
-| 4. Parser            | 5      | 0       | 0      |
-| 5. AST               | 9      | 0       | 0      |
-| 6. Type System       | 4      | 0       | 0      |
-| 7. Semantic Analysis | 5      | 0       | 0      |
-| 8. Zero IR           | 12     | 0       | 0      |
-| 9. CPU Backend       | 0      | 0       | 2      |
-| 10. Tensor Runtime   | 6      | 0       | 0      |
-| 11. CLI Driver       | 0      | 0       | 3      |
-| 12. Tests            | 2      | 0       | 5      |
-| **TOTAL**            | **58** | **0**   | **10** |
+| Category             | Done   | Partial | TODO  |
+| -------------------- | ------ | ------- | ----- |
+| 1. Core Runtime      | 6      | 0       | 0     |
+| 2. Source Management | 4      | 0       | 0     |
+| 3. Lexer             | 5      | 0       | 0     |
+| 4. Parser            | 5      | 0       | 0     |
+| 5. AST               | 9      | 0       | 0     |
+| 6. Type System       | 4      | 0       | 0     |
+| 7. Semantic Analysis | 5      | 0       | 0     |
+| 8. Zero IR           | 12     | 0       | 0     |
+| 9. CPU Backend       | 2      | 0       | 0     |
+| 10. Tensor Runtime   | 6      | 0       | 0     |
+| 11. CLI Driver       | 0      | 0       | 3     |
+| 12. Tests            | 2      | 0       | 5     |
+| **TOTAL**            | **60** | **0**   | **8** |
 
 ---
 
