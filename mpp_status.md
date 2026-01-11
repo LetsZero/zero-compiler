@@ -53,29 +53,29 @@
 
 ## 4. Parser (MINIMAL)
 
-| Item                  | Status  | Notes |
-| --------------------- | ------- | ----- |
-| Function definitions  | ❌ TODO | -     |
-| Variable declarations | ❌ TODO | -     |
-| Function calls        | ❌ TODO | -     |
-| Return statements     | ❌ TODO | -     |
-| Basic expressions     | ❌ TODO | -     |
+| Item                  | Status  | Notes                             |
+| --------------------- | ------- | --------------------------------- |
+| Function definitions  | ✅ DONE | `parser::Parser::parse_fn_decl()` |
+| Variable declarations | ✅ DONE | `parse_let_stmt()`                |
+| Function calls        | ✅ DONE | `parse_call()`                    |
+| Return statements     | ✅ DONE | `parse_return_stmt()`             |
+| Basic expressions     | ✅ DONE | Precedence climbing               |
 
 ---
 
 ## 5. AST (LEAN)
 
-| Item       | Status  | Notes |
-| ---------- | ------- | ----- |
-| Program    | ❌ TODO | -     |
-| Function   | ❌ TODO | -     |
-| Block      | ❌ TODO | -     |
-| LetStmt    | ❌ TODO | -     |
-| ReturnStmt | ❌ TODO | -     |
-| CallExpr   | ❌ TODO | -     |
-| BinaryExpr | ❌ TODO | -     |
-| Identifier | ❌ TODO | -     |
-| Literal    | ❌ TODO | -     |
+| Item       | Status  | Notes                        |
+| ---------- | ------- | ---------------------------- |
+| Program    | ✅ DONE | `ast::Program` struct        |
+| Function   | ✅ DONE | `ast::FnDecl` struct         |
+| Block      | ✅ DONE | `ast::Block` struct          |
+| LetStmt    | ✅ DONE | `ast::LetStmt` variant       |
+| ReturnStmt | ✅ DONE | `ast::ReturnStmt` variant    |
+| CallExpr   | ✅ DONE | `ast::CallExpr` variant      |
+| BinaryExpr | ✅ DONE | `ast::BinaryExpr` variant    |
+| Identifier | ✅ DONE | `ast::Identifier` variant    |
+| Literal    | ✅ DONE | `IntLiteral`, `FloatLiteral` |
 
 ---
 
@@ -176,8 +176,8 @@
 | 1. Core Runtime      | 6      | 0       | 0      |
 | 2. Source Management | 4      | 0       | 0      |
 | 3. Lexer             | 5      | 0       | 0      |
-| 4. Parser            | 0      | 0       | 5      |
-| 5. AST               | 0      | 0       | 9      |
+| 4. Parser            | 5      | 0       | 0      |
+| 5. AST               | 9      | 0       | 0      |
 | 6. Type System       | 0      | 0       | 4      |
 | 7. Semantic Analysis | 0      | 0       | 5      |
 | 8. Zero IR           | 0      | 0       | 12     |
@@ -185,7 +185,7 @@
 | 10. Tensor Runtime   | 6      | 0       | 0      |
 | 11. CLI Driver       | 0      | 0       | 3      |
 | 12. Tests            | 2      | 0       | 5      |
-| **TOTAL**            | **23** | **0**   | **45** |
+| **TOTAL**            | **37** | **0**   | **31** |
 
 ---
 
