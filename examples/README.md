@@ -1,84 +1,72 @@
 # Zero Examples
 
-This directory contains example programs demonstrating Zero's features.
+Example programs demonstrating Zero's features.
+
+## Running Examples
+
+```bash
+# Run any example
+.\build\bin\Debug\zeroc.exe examples\calculator.zero
+
+# Dump IR for debugging
+.\build\bin\Debug\zeroc.exe --dump-ir examples\hello.zero
+```
 
 ## Examples
 
-### 1. hello_world.zero
+### 1. hello.zero
 
-Basic demonstration of the display module:
+Simple arithmetic that returns 30 (10 + 20):
 
-- `print()` function for basic output
-- `log()` function with named colors
-- Direct ANSI code formatting
-
-**Run**: (Once compiler is complete)
-
-```bash
-zero run examples/hello_world.zero
+```zero
+fn main() {
+    let x = 10
+    let y = 20
+    return x + y
+}
 ```
 
-### 2. logging_demo.zero
+### 2. calculator.zero **(NEW)**
 
-Advanced logging examples:
+Full calculator demonstrating all arithmetic operations:
 
-- Semantic color usage (info, warning, error)
-- Build process logging
-- Debug information display
-- Custom ANSI formatting
+- Addition, subtraction, multiplication, division
+- Compound expressions with parentheses
+- Nested calculations
+- Colored output with `log()`
 
-### 3. error_demo.zero
+### 3. hello_world.zero
 
-Error handling demonstration:
+Display module demonstration:
 
-- Shows commented examples of different error types
-- Demonstrates Zero's "Frame & Focus" error format
-- Helpful for understanding diagnostic messages
+- `print()` for output
+- `log()` with colors: `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`
 
-## Display Module Features
+### 4. error_demo.zero
 
-### Print Function
+Error handling showcase with "Frame & Focus" diagnostics.
 
-```rust
-print("Hello, World!")
-print(42)
-```
+### 5. logging_demo.zero
 
-- Basic stdout output
-- Automatic newline
-- Works with strings and numbers
+Advanced logging with semantic colors and ANSI formatting.
 
-### Log Function
+## Language Features
 
-```rust
-// Named colors
+```zero
+// Variables
+let x = 42
+let pi = 3.14
+let msg = "Hello"
+
+// Arithmetic
+let result = (a + b) * 2
+
+// Output
+print("Value:", result)
 log("Success!", color="green")
-log("Warning!", color="yellow")
-log("Error!", color="red")
 
-// Direct ANSI codes
-log("Bold text", ansi="\x1b[1m")
+// Functions
+fn add(a: int, b: int) -> int {
+    return a + b
+}
 ```
-
-**Supported Colors**:
-
-- `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
-
-### Error Reporting
-
-Zero automatically provides detailed error messages with:
-
-- Source file context
-- Line and column numbers
-- Visual pointers (^^^)
-- Helpful suggestions
-- Color-coded output
-
-## Future Examples
-
-Once the compiler is complete, we'll add:
-
-- `tensor_operations.zero` - Tensor manipulation
-- `neural_network.zero` - Simple neural network
-- `autograd_demo.zero` - Automatic differentiation
-- `training_loop.zero` - Model training example

@@ -1,0 +1,74 @@
+// Calculator Example - Testing Zero Compiler Arithmetic
+use display
+
+fn main() {
+    print("=== Zero Calculator ===")
+    print("")
+    
+    // Basic arithmetic operations
+    let a = 100
+    let b = 25
+    
+    print("Operands:")
+    print("  a = 100")
+    print("  b = 25")
+    print("")
+    
+    // Addition
+    let sum = a + b
+    print("Addition: a + b = ")
+    print(sum)
+    
+    // Subtraction
+    let diff = a - b
+    print("Subtraction: a - b = ")
+    print(diff)
+    
+    // Multiplication
+    let prod = a * b
+    print("Multiplication: a * b = ")
+    print(prod)
+    
+    // Division
+    let quot = a / b
+    print("Division: a / b = ")
+    print(quot)
+    
+    print("")
+    
+    // Compound expressions
+    print("=== Compound Expressions ===")
+    
+    let expr1 = (a + b) * 2
+    print("(a + b) * 2 = ")
+    print(expr1)
+    
+    let expr2 = a * b + 100
+    print("a * b + 100 = ")
+    print(expr2)
+    
+    let expr3 = (a - b) / 5
+    print("(a - b) / 5 = ")
+    print(expr3)
+    
+    print("")
+    
+    // Nested calculations
+    print("=== Nested Calculations ===")
+    let x = 10
+    let y = 20
+    let z = 30
+    
+    let result = x + y + z
+    print("10 + 20 + 30 = ")
+    print(result)
+    
+    let complex = (x * y) + (y * z) - (x * z)
+    print("(10*20) + (20*30) - (10*30) = ")
+    print(complex)
+    
+    print("")
+    log("Calculator test complete!", color="green")
+    
+    return 0
+}
