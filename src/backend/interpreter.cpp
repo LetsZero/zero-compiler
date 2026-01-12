@@ -136,6 +136,10 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             result = RuntimeValue(instr.imm_float);
             break;
             
+        case OpCode::CONST_STR:
+            result = RuntimeValue(instr.imm_str);
+            break;
+            
         case OpCode::ADD: {
             auto lhs = get_value(instr.operands[0]);
             auto rhs = get_value(instr.operands[1]);

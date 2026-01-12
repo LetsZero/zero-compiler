@@ -22,6 +22,7 @@ enum class TokenType {
     IDENT,          // foo, bar, main
     INT_LIT,        // 42, 100
     FLOAT_LIT,      // 3.14, 0.5
+    STRING_LIT,     // "hello"
     
     // Keywords
     FN,             // fn
@@ -30,6 +31,7 @@ enum class TokenType {
     IF,             // if
     ELSE,           // else
     WHILE,          // while
+    USE,            // use
     
     // Operators
     PLUS,           // +
@@ -108,12 +110,14 @@ inline const char* Token::type_name(TokenType t) {
         case TokenType::IDENT:      return "IDENT";
         case TokenType::INT_LIT:    return "INT";
         case TokenType::FLOAT_LIT:  return "FLOAT";
+        case TokenType::STRING_LIT: return "STRING";
         case TokenType::FN:         return "FN";
         case TokenType::LET:        return "LET";
         case TokenType::RETURN:     return "RETURN";
         case TokenType::IF:         return "IF";
         case TokenType::ELSE:       return "ELSE";
         case TokenType::WHILE:      return "WHILE";
+        case TokenType::USE:        return "USE";
         case TokenType::PLUS:       return "PLUS";
         case TokenType::MINUS:      return "MINUS";
         case TokenType::STAR:       return "STAR";

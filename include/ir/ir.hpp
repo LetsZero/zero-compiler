@@ -45,6 +45,7 @@ enum class OpCode {
     // Constants
     CONST_INT,      // result = constant int
     CONST_FLOAT,    // result = constant float
+    CONST_STR,      // result = constant string
     
     // Arithmetic
     ADD,            // result = op0 + op1
@@ -86,6 +87,7 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::NOP: return "nop";
         case OpCode::CONST_INT: return "const.i64";
         case OpCode::CONST_FLOAT: return "const.f32";
+        case OpCode::CONST_STR: return "const.str";
         case OpCode::ADD: return "add";
         case OpCode::SUB: return "sub";
         case OpCode::MUL: return "mul";
@@ -129,6 +131,7 @@ struct Instruction {
     // For constants
     int64_t imm_int = 0;
     double imm_float = 0.0;
+    std::string imm_str;
     
     // For calls
     std::string callee;

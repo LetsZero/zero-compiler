@@ -185,6 +185,10 @@ Token Lexer::scan_token() {
             return make_token(match('=') ? TokenType::LT_EQ : TokenType::LT);
         case '>':
             return make_token(match('=') ? TokenType::GT_EQ : TokenType::GT);
+        
+        // String literals
+        case '"':
+            return scan_string();
     }
     
     return error_token("Unexpected character");
@@ -224,6 +228,8 @@ TokenType Lexer::identifier_type() {
             return check_keyword(1, 2, "et", TokenType::LET);
         case 'r':
             return check_keyword(1, 5, "eturn", TokenType::RETURN);
+        case 'u':
+            return check_keyword(1, 2, "se", TokenType::USE);
         case 'w':
             return check_keyword(1, 4, "hile", TokenType::WHILE);
     }
@@ -263,6 +269,36 @@ Token Lexer::scan_number() {
     }
     
     return make_token(TokenType::INT_LIT);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// String scanning
+// ─────────────────────────────────────────────────────────────────────────────
+
+Token Lexer::scan_string() {
+    // Already consumed the opening quote
+    while (!is_at_end() && peek_char() != '"') {
+        if (peek_char() == '\\') {
+            // Skip escape sequence
+            advance();
+            if (!is_at_end()) {
+                advance();
+            }
+        } else if (peek_char() == '\n') {
+            // Unterminated string at newline
+            return error_token("Unterminated string");
+        } else {
+            advance();
+        }
+    }
+    
+    if (is_at_end()) {
+        return error_token("Unterminated string");
+    }
+    
+    // Consume closing quote
+    advance();
+    return make_token(TokenType::STRING_LIT);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

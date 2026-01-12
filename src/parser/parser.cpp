@@ -105,6 +105,16 @@ Program Parser::parse() {
     skip_newlines();
     
     while (!current_.is_eof()) {
+        // Skip use statements (not yet implemented)
+        if (check(TokenType::USE)) {
+            advance();  // consume 'use'
+            if (check(TokenType::IDENT)) {
+                advance();  // consume module name
+            }
+            skip_newlines();
+            continue;
+        }
+        
         if (check(TokenType::FN)) {
             program.functions.push_back(parse_fn_decl());
         } else {
@@ -477,9 +487,14 @@ std::unique_ptr<Expr> Parser::parse_call() {
         call.callee = expr->as<Identifier>().name;
         call.span = expr->span();
         
-        // Parse arguments
+        // Parse arguments (including keyword arguments)
         if (!check(TokenType::RPAREN)) {
             do {
+                // Check for keyword argument: name = expr
+                if (check(TokenType::IDENT) && lexer_.peek().type == TokenType::EQ) {
+                    advance();  // consume identifier (keyword name)
+                    advance();  // consume '='
+                }
                 call.args.push_back(parse_expr());
             } while (match(TokenType::COMMA));
         }
@@ -514,6 +529,18 @@ std::unique_ptr<Expr> Parser::parse_primary() {
         FloatLiteral lit;
         lit.span = previous_.span;
         lit.value = std::stod(std::string(previous_.text));
+        return make_expr(std::move(lit));
+    }
+    
+    // String literal
+    if (match(TokenType::STRING_LIT)) {
+        StringLiteral lit;
+        lit.span = previous_.span;
+        // Strip quotes from the text
+        std::string_view text = previous_.text;
+        if (text.size() >= 2) {
+            lit.value = std::string(text.substr(1, text.size() - 2));
+        }
         return make_expr(std::move(lit));
     }
     

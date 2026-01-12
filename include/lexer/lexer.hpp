@@ -87,6 +87,7 @@ private:
     
     Token scan_identifier();
     Token scan_number();
+    Token scan_string();
     
     TokenType identifier_type();
     TokenType check_keyword(uint32_t start, uint32_t length, 

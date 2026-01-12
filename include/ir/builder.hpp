@@ -57,6 +57,15 @@ public:
         return instr.result;
     }
     
+    Value const_str(const std::string& value) {
+        Instruction instr;
+        instr.op = OpCode::CONST_STR;
+        instr.result = fn_.new_value(types::Type::make_unknown()); // String type
+        instr.imm_str = value;
+        emit(instr);
+        return instr.result;
+    }
+    
     // ─────────────────────────────────────────────────────────────────────
     // Arithmetic
     // ─────────────────────────────────────────────────────────────────────

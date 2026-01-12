@@ -128,6 +128,9 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
         else if constexpr (std::is_same_v<T, ast::FloatLiteral>) {
             return builder.const_float(e.value);
         }
+        else if constexpr (std::is_same_v<T, ast::StringLiteral>) {
+            return builder.const_str(e.value);
+        }
         else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
             Value lhs = e.left ? lower_expr(builder, *e.left) : Value{};
             Value rhs = e.right ? lower_expr(builder, *e.right) : Value{};

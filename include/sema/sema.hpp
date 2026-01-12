@@ -47,6 +47,7 @@ struct FnSignature {
     std::string name;
     std::vector<types::Type> param_types;
     types::Type return_type;
+    bool is_variadic = false;  // For built-ins that accept any number of args
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +117,7 @@ private:
     // ─────────────────────────────────────────────────────────────────────
     
     void collect_functions(ast::Program& prog);
+    void register_builtins();
     void check_fn(ast::FnDecl& fn);
     void check_stmt(ast::Stmt& stmt);
     types::Type check_expr(ast::Expr& expr);

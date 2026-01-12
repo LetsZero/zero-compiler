@@ -97,6 +97,11 @@ struct FloatLiteral {
     source::Span span;
 };
 
+struct StringLiteral {
+    std::string value;
+    source::Span span;
+};
+
 struct BinaryExpr {
     BinOp op;
     std::unique_ptr<Expr> left;
@@ -129,6 +134,7 @@ using ExprVariant = std::variant<
     Identifier,
     IntLiteral,
     FloatLiteral,
+    StringLiteral,
     BinaryExpr,
     UnaryExpr,
     CallExpr,

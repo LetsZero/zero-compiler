@@ -147,11 +147,11 @@
 
 ## 11. Compiler Driver (CLI)
 
-| Item                     | Status  | Notes |
-| ------------------------ | ------- | ----- |
-| `zero run file.zero`     | ❌ TODO | -     |
-| `zero check file.zero`   | ❌ TODO | -     |
-| `zero emit-ir file.zero` | ❌ TODO | -     |
+| Item                          | Status  | Notes                               |
+| ----------------------------- | ------- | ----------------------------------- |
+| `zeroc <file.zero>`           | ✅ DONE | Implementation of `compile_and_run` |
+| `zeroc --dump-ir <file.zero>` | ✅ DONE | IR printing support                 |
+| `zeroc --help`                | ✅ DONE | CLI argument parsing                |
 
 ---
 

@@ -77,6 +77,9 @@ void Sema::error(ErrorKind kind, const std::string& msg, source::Span span) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 void Sema::analyze(ast::Program& prog) {
+    // Register built-in functions
+    register_builtins();
+    
     // First pass: collect all function signatures
     collect_functions(prog);
     
@@ -108,6 +111,25 @@ void Sema::collect_functions(ast::Program& prog) {
             functions_[fn.name] = sig;
         }
     }
+}
+
+void Sema::register_builtins() {
+    // Register built-in functions that are available in Zero
+    
+    // print(...) - variadic print function
+    FnSignature print_sig;
+    print_sig.name = "print";
+    // Empty param_types = accepts any number of arguments
+    print_sig.return_type = types::Type::make_void();
+    print_sig.is_variadic = true;
+    functions_["print"] = print_sig;
+    
+    // log(msg, color=...) - logging function with optional color
+    FnSignature log_sig;
+    log_sig.name = "log";
+    log_sig.return_type = types::Type::make_void();
+    log_sig.is_variadic = true;
+    functions_["log"] = log_sig;
 }
 
 void Sema::check_fn(ast::FnDecl& fn) {
@@ -239,6 +261,10 @@ types::Type Sema::check_expr(ast::Expr& expr) {
         else if constexpr (std::is_same_v<T, ast::FloatLiteral>) {
             return types::Type::make_float();
         }
+        else if constexpr (std::is_same_v<T, ast::StringLiteral>) {
+            // String literals - MPP uses unknown type for now
+            return types::Type::make_unknown();
+        }
         else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
             types::Type left = e.left ? check_expr(*e.left) : types::Type::make_unknown();
             types::Type right = e.right ? check_expr(*e.right) : types::Type::make_unknown();
@@ -257,8 +283,8 @@ types::Type Sema::check_expr(ast::Expr& expr) {
             
             const FnSignature& sig = it->second;
             
-            // Check argument count
-            if (e.args.size() != sig.param_types.size()) {
+            // Check argument count (skip for variadic functions)
+            if (!sig.is_variadic && e.args.size() != sig.param_types.size()) {
                 error(ErrorKind::WRONG_ARG_COUNT,
                       "Function '" + e.callee + "' expects " + 
                       std::to_string(sig.param_types.size()) + " arguments, got " +

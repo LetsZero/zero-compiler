@@ -110,9 +110,40 @@ int compile_and_run(const std::string& filename, bool dump_ir) {
                 std::cout << arg.as_int();
             } else if (arg.is_float()) {
                 std::cout << arg.as_float();
+            } else if (arg.is_str()) {
+                std::cout << arg.as_str();
             }
         }
         std::cout << "\n";
+        return backend::RuntimeValue{};
+    });
+    
+    // Register log function (with color support)
+    interp.register_external("log", [](const std::vector<backend::RuntimeValue>& args) {
+        // Find message and color arguments
+        std::string message;
+        std::string color;
+        
+        for (const auto& arg : args) {
+            if (arg.is_str()) {
+                if (message.empty()) {
+                    message = arg.as_str();
+                } else {
+                    color = arg.as_str();
+                }
+            }
+        }
+        
+        // ANSI color codes
+        std::string ansi_code = "\033[0m"; // default/reset
+        if (color == "red") ansi_code = "\033[31m";
+        else if (color == "green") ansi_code = "\033[32m";
+        else if (color == "yellow") ansi_code = "\033[33m";
+        else if (color == "blue") ansi_code = "\033[34m";
+        else if (color == "magenta") ansi_code = "\033[35m";
+        else if (color == "cyan") ansi_code = "\033[36m";
+        
+        std::cout << ansi_code << message << "\033[0m\n";
         return backend::RuntimeValue{};
     });
     
