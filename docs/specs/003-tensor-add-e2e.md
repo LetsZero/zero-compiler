@@ -1,8 +1,8 @@
 # Spec 003: End-to-end tensor `add` through the interpreter
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 001 (build foundation), spec 002 (IR source spans)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -139,3 +139,9 @@ The test uses the same custom `TEST(...)` macro pattern as `test_ir.cpp`.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) the helper opcode is `TENSOR_CONST_F32` rather than introducing a parser-level tensor literal — keeps the spec strictly to the IR/interpreter half; (b) `RuntimeValue` wraps the runtime `Tensor` in a `std::shared_ptr` with a custom deleter that respects `owns_data`, preserving the runtime's caller-allocated/ownership contract; (c) on `Status::error` the interpreter throws `std::runtime_error` with the span embedded as a `@<id>:<start>-<end>` fragment (same format as the IR dumper from spec 002) — reporter integration deferred; (d) only `TENSOR_ADD` is wired in this spec; the other four `TENSOR_*` opcodes stay stubbed pending a follow-up spec; (e) shape is taken authoritatively from operand 0, matching how the runtime's binary op contract treats `a` as the shape source.
+- *Implementation* — Real architectural finding surfaced by the build:
+  - **`zero::ir::` namespace collision between repos.** Both the compiler's IR (`include/ir/ir.hpp`) and the frozen runtime's own IR primitives (`external/core-runtime/include/zero/ir/function.hpp`, `control_flow.hpp`) define `Function` and `BasicBlock` under `namespace zero::ir`. The compiler's earlier code never observed this because nothing in the compiler tree pulled the runtime's `ir/` headers in. Spec 003 surfaces it the moment the interpreter tries to `#include <zero/zero.hpp>` (the runtime's umbrella include).
+  - **Resolution chosen:** narrow includes. The interpreter consumes only `<zero/core/tensor.hpp>`, `<zero/core/status.hpp>`, and `<zero/ops/elementwise.hpp>` directly — never the runtime umbrella. The collision stays dormant.
+  - **Open question for a future spec:** whether to keep narrow includes forever, or rename the compiler's IR namespace to (say) `zero::compiler::ir` so the umbrella can be used freely. Recommend deferring until the compiler genuinely needs broad runtime access; the narrow-include pattern is already adequate.
+  - Sentinel-fill of the output buffer is performed *before* the runtime call so the runtime's "writes zero bytes on error" contract is observable from the compiler side. The test doesn't probe the buffer post-throw (it's discarded), but the structured error message proves the path.
+- *Implementation, verification* — `ctest` **13/13 passing**. The new `ZeroTensorAddE2ETest` exercises the happy path (bit-exact `[1,2,3,4] + [10,10,10,10] = [11,12,13,14]`), the shape-mismatch error path (throw with embedded `@<id>:<start>-<end>` span), and the structured-error-message contract. All 12 pre-existing test binaries pass unmodified.

@@ -4,8 +4,15 @@
  */
 
 #include "backend/interpreter.hpp"
+
+// Spec 003: ops::add lives here. We avoid <zero/zero.hpp> to dodge the
+// zero::ir:: namespace collision (see interpreter.hpp).
+#include <zero/ops/elementwise.hpp>
+
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
+#include <cstring>
 
 namespace zero {
 namespace backend {
@@ -272,14 +279,84 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             // For now, no-op
             break;
             
-        // Tensor ops - placeholders for core-runtime integration
+        // Tensor ops — spec 003 wires TENSOR_CONST_F32 and TENSOR_ADD to
+        // the frozen runtime. The remaining TENSOR_* opcodes stay stubbed
+        // pending follow-up specs.
+        case OpCode::TENSOR_CONST_F32: {
+            // Build a fresh contiguous F32 tensor from instr.imm_shape +
+            // instr.imm_floats, wrap it in a shared_ptr whose deleter
+            // respects owns_data, then store as the result.
+            int64_t shape_arr[zero::MAX_DIMS] = {0};
+            int8_t ndim = static_cast<int8_t>(instr.imm_shape.size());
+            for (int8_t i = 0; i < ndim; ++i) shape_arr[i] = instr.imm_shape[i];
+
+            TensorPtr t(
+                new zero::Tensor(zero::Tensor::alloc(shape_arr, ndim, zero::DType::F32)),
+                [](zero::Tensor* p) { if (p && p->owns_data) p->free(); delete p; });
+
+            if (t->data == nullptr) {
+                throw std::runtime_error("tensor.const.f32: allocation failed");
+            }
+
+            // Fill bytes from imm_floats (caller is responsible for sizing).
+            const size_t n = std::min<size_t>(instr.imm_floats.size(), static_cast<size_t>(t->numel()));
+            float* dst = static_cast<float*>(t->data);
+            for (size_t i = 0; i < n; ++i) dst[i] = instr.imm_floats[i];
+
+            result = RuntimeValue(std::move(t));
+            break;
+        }
+
+        case OpCode::TENSOR_ADD: {
+            // Pull operands. Both must be tensor-valued; the LHS supplies
+            // the authoritative output shape.
+            RuntimeValue lhs_v = get_value(instr.operands[0]);
+            RuntimeValue rhs_v = get_value(instr.operands[1]);
+            if (!lhs_v.is_tensor() || !rhs_v.is_tensor()) {
+                throw std::runtime_error("tensor_add: non-tensor operand");
+            }
+            const TensorPtr& a = lhs_v.as_tensor();
+            const TensorPtr& b = rhs_v.as_tensor();
+
+            // Allocate output with LHS's shape.
+            int64_t shape_arr[zero::MAX_DIMS] = {0};
+            for (int8_t i = 0; i < a->ndim; ++i) shape_arr[i] = a->shape[i];
+            TensorPtr out(
+                new zero::Tensor(zero::Tensor::alloc(shape_arr, a->ndim, zero::DType::F32)),
+                [](zero::Tensor* p) { if (p && p->owns_data) p->free(); delete p; });
+
+            if (out->data == nullptr) {
+                throw std::runtime_error("tensor_add: output allocation failed");
+            }
+
+            // Sentinel-fill the output BEFORE the call, so callers can verify
+            // the runtime's "writes zero bytes on error" contract is preserved
+            // across the bridge. 0xAB matches the runtime's own test sentinel.
+            std::memset(out->data, 0xAB, out->nbytes());
+
+            // Call into the frozen runtime.
+            zero::Status s = zero::ops::add(*a, *b, *out);
+            if (s.is_error()) {
+                std::ostringstream msg;
+                msg << "tensor_add failed: code=" << static_cast<int>(s.code);
+                if (s.msg) msg << " (" << s.msg << ")";
+                if (instr.span.valid()) {
+                    msg << " @" << static_cast<uint32_t>(instr.span.source_id)
+                        << ":" << instr.span.start_offset
+                        << "-" << instr.span.end_offset;
+                }
+                throw std::runtime_error(msg.str());
+            }
+            result = RuntimeValue(std::move(out));
+            break;
+        }
+
         case OpCode::TENSOR_ALLOC:
-        case OpCode::TENSOR_ADD:
         case OpCode::TENSOR_SUB:
         case OpCode::TENSOR_MUL:
         case OpCode::TENSOR_MATMUL:
         case OpCode::TENSOR_RELU:
-            // TODO: Link to core-runtime
+            // Still stubbed — wire in a follow-up spec.
             result = RuntimeValue(static_cast<void*>(nullptr));
             break;
             

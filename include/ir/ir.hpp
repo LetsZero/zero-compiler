@@ -76,11 +76,16 @@ enum class OpCode {
     
     // Tensor operations (link to core-runtime)
     TENSOR_ALLOC,   // result = allocate tensor
-    TENSOR_ADD,     // result = tensor_add(op0, op1)
+    TENSOR_ADD,     // result = tensor_add(op0, op1)   — wired in spec 003
     TENSOR_SUB,     // result = tensor_sub(op0, op1)
     TENSOR_MUL,     // result = tensor_mul(op0, op1)
     TENSOR_MATMUL,  // result = tensor_matmul(op0, op1)
     TENSOR_RELU,    // result = tensor_relu(op0)
+
+    // Spec 003: build a fresh contiguous F32 tensor from immediate data.
+    // Pure helper op for tests; production lowering will not emit it.
+    // shape lives in imm_shape, values in imm_floats.
+    TENSOR_CONST_F32,
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -113,6 +118,7 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_MUL: return "tensor.mul";
         case OpCode::TENSOR_MATMUL: return "tensor.matmul";
         case OpCode::TENSOR_RELU: return "tensor.relu";
+        case OpCode::TENSOR_CONST_F32: return "tensor.const.f32";
         default: return "unknown";
     }
 }
@@ -140,6 +146,11 @@ struct Instruction {
     // For branches
     uint32_t target_block = 0;       // For BR
     uint32_t else_block = 0;         // For COND_BR
+
+    // Tensor-shape / inline data (spec 003).
+    // Used by TENSOR_CONST_F32; ignored by other opcodes in v1.
+    std::vector<int64_t> imm_shape;
+    std::vector<float>   imm_floats;
 
     // Source attribution (spec 002).
     // Spec 002 contract: every Instruction emitted by IRBuilder carries the

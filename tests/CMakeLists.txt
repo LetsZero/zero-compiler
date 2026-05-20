@@ -137,6 +137,15 @@ set_target_properties(test_ir_spans PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# End-to-end tensor add test (spec 003).
+add_executable(test_tensor_add_e2e
+    test_tensor_add_e2e.cpp
+)
+target_link_libraries(test_tensor_add_e2e PRIVATE zerobackend)
+set_target_properties(test_tensor_add_e2e PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -164,4 +173,5 @@ add_test(NAME ZeroSemaTest         COMMAND test_sema)
 add_test(NAME ZeroIRTest           COMMAND test_ir)
 add_test(NAME ZeroBackendTest      COMMAND test_backend)
 add_test(NAME ZeroIRSpansTest      COMMAND test_ir_spans)
+add_test(NAME ZeroTensorAddE2ETest COMMAND test_tensor_add_e2e)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)

@@ -191,6 +191,39 @@ public:
         emit(instr);
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Tensor ops (spec 003)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * @brief Emit a TENSOR_CONST_F32 — build a fresh contiguous F32 tensor
+     * with the given shape and inline values. Helper for tests; production
+     * lowering will not emit this opcode.
+     */
+    Value tensor_const_f32(std::vector<int64_t> shape, std::vector<float> data) {
+        Instruction instr;
+        instr.op = OpCode::TENSOR_CONST_F32;
+        instr.result = fn_.new_value(types::Type::make_tensor());
+        instr.imm_shape = std::move(shape);
+        instr.imm_floats = std::move(data);
+        emit(instr);
+        return instr.result;
+    }
+
+    /**
+     * @brief Emit a TENSOR_ADD — wires to zero::ops::add in the interpreter.
+     * Output shape is taken from the LHS operand (matches the runtime's
+     * binary op contract).
+     */
+    Value tensor_add(Value lhs, Value rhs) {
+        Instruction instr;
+        instr.op = OpCode::TENSOR_ADD;
+        instr.result = fn_.new_value(types::Type::make_tensor());
+        instr.operands = {lhs, rhs};
+        emit(instr);
+        return instr.result;
+    }
+
 private:
     Function& fn_;
     BasicBlock* current_block_;

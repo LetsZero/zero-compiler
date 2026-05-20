@@ -47,6 +47,19 @@ std::string print_instruction(const Instruction& instr) {
                << ", bb" << instr.target_block
                << ", bb" << instr.else_block;
             break;
+        case OpCode::TENSOR_CONST_F32:
+            ss << " shape=[";
+            for (size_t i = 0; i < instr.imm_shape.size(); ++i) {
+                if (i) ss << ",";
+                ss << instr.imm_shape[i];
+            }
+            ss << "] data={";
+            for (size_t i = 0; i < instr.imm_floats.size(); ++i) {
+                if (i) ss << ",";
+                ss << instr.imm_floats[i];
+            }
+            ss << "}";
+            break;
         default:
             for (size_t i = 0; i < instr.operands.size(); ++i) {
                 ss << " " << print_value(instr.operands[i]);

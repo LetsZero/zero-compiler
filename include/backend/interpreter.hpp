@@ -11,10 +11,18 @@
 #include "ir/ir.hpp"
 #include "types/types.hpp"
 
+// Spec 003: include only what we need from the runtime. The umbrella
+// <zero/zero.hpp> would pull in zero::ir::Function / zero::ir::BasicBlock
+// from the runtime's own IR layer and collide with this compiler's
+// zero::ir:: types.
+#include <zero/core/tensor.hpp>
+#include <zero/core/status.hpp>
+
 #include <unordered_map>
 #include <variant>
 #include <vector>
 #include <string>
+#include <memory>
 #include <functional>
 
 namespace zero {
@@ -26,26 +34,35 @@ namespace backend {
 
 /**
  * A runtime value during interpretation.
+ *
+ * Spec 003: tensors are stored as std::shared_ptr<zero::Tensor> with a deleter
+ * that respects owns_data, so the runtime's caller-allocated contract is
+ * preserved even as RuntimeValue copies flow through the interpreter.
  */
+using TensorPtr = std::shared_ptr<zero::Tensor>;
+
 struct RuntimeValue {
-    std::variant<std::monostate, int64_t, double, void*, std::string> data;
-    
+    std::variant<std::monostate, int64_t, double, void*, std::string, TensorPtr> data;
+
     RuntimeValue() : data(std::monostate{}) {}
     explicit RuntimeValue(int64_t v) : data(v) {}
     explicit RuntimeValue(double v) : data(v) {}
     explicit RuntimeValue(void* v) : data(v) {}
     explicit RuntimeValue(const std::string& v) : data(v) {}
-    
+    explicit RuntimeValue(TensorPtr t) : data(std::move(t)) {}
+
     bool is_void() const { return std::holds_alternative<std::monostate>(data); }
     bool is_int() const { return std::holds_alternative<int64_t>(data); }
     bool is_float() const { return std::holds_alternative<double>(data); }
     bool is_ptr() const { return std::holds_alternative<void*>(data); }
     bool is_str() const { return std::holds_alternative<std::string>(data); }
-    
+    bool is_tensor() const { return std::holds_alternative<TensorPtr>(data); }
+
     int64_t as_int() const { return std::get<int64_t>(data); }
     double as_float() const { return std::get<double>(data); }
     void* as_ptr() const { return std::get<void*>(data); }
     const std::string& as_str() const { return std::get<std::string>(data); }
+    const TensorPtr& as_tensor() const { return std::get<TensorPtr>(data); }
     
     // Convert to int for comparisons
     int64_t to_int() const {
