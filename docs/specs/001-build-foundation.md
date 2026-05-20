@@ -1,8 +1,8 @@
 # Spec 001: Build foundation against runtime v1.4
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** none
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -101,3 +101,4 @@ The acceptance is a clean `cmake -B build && cmake --build build && ctest --test
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) `ZERO_BUILD_TESTS=OFF` is forced rather than left to default, so the compiler build never accidentally runs the runtime's test suite; (b) ctest registration is added for *every* test binary in `tests/CMakeLists.txt` as a one-shot side-cleanup, since the existing tests are built but never run by `ctest` today — fixing this is a 5-line addition and saves a separate spec; (c) the new test uses the same custom `ASSERT` macro style as the runtime's tests rather than introducing gtest, to keep the compiler's test dependency surface at zero.
+- *Implementation, verification* — `cmake` configures with `C++ Standard: 20` and reports `Found core-runtime submodule`. `cmake --build` builds every target including the runtime-as-submodule's interface library `zero-core` and the new `test_runtime_bridge`. `ctest --output-on-failure` reports **11/11 passing**: the 10 pre-existing test binaries (now actually discovered by ctest) plus the new bridge test. The runtime's own ctest suite did not run as part of the build (`ZERO_BUILD_TESTS=OFF` worked).

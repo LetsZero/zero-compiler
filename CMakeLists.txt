@@ -3,7 +3,9 @@ cmake_minimum_required(VERSION 3.15)
 project(Zero VERSION 0.1.0 LANGUAGES CXX)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
+# C++20 required: the core-runtime submodule needs it (constexpr, designated
+# initializers, std::array initialization patterns). Spec 001.
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -26,6 +28,20 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/runtime
 )
 
+# Add core-runtime submodule FIRST so its zero-core interface library is
+# available to every downstream target. Disable its own tests to avoid
+# re-running the runtime suite as part of the compiler build (spec 001).
+if(EXISTS "${CMAKE_SOURCE_DIR}/external/core-runtime/CMakeLists.txt")
+    message(STATUS "Found core-runtime submodule")
+    set(ZERO_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(external/core-runtime)
+else()
+    message(WARNING "core-runtime submodule not found. Run: git submodule update --init --recursive")
+endif()
+
+# Enable ctest discovery for everything below.
+enable_testing()
+
 # Add subdirectories
 add_subdirectory(runtime)
 add_subdirectory(src/source)
@@ -37,14 +53,6 @@ add_subdirectory(src/backend)
 add_subdirectory(src/driver)
 add_subdirectory(src/diagnostics)
 add_subdirectory(tests)
-
-# Add core-runtime submodule
-if(EXISTS "${CMAKE_SOURCE_DIR}/external/core-runtime/CMakeLists.txt")
-    message(STATUS "Found core-runtime submodule")
-    add_subdirectory(external/core-runtime)
-else()
-    message(WARNING "core-runtime submodule not found. Run: git submodule update --init --recursive")
-endif()
 
 # Print configuration summary
 message(STATUS "")

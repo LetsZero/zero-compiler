@@ -127,3 +127,31 @@ target_link_libraries(test_backend PRIVATE zerobackend)
 set_target_properties(test_backend PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Runtime-bridge smoke test (spec 001).
+# This test #includes <zero/zero.hpp> from the external/core-runtime
+# submodule and exercises one runtime op directly — the first end-to-end
+# proof that the compiler tree can build against frozen runtime v1.4.0.
+add_executable(test_runtime_bridge
+    test_runtime_bridge.cpp
+)
+target_link_libraries(test_runtime_bridge PRIVATE zero-core)
+set_target_properties(test_runtime_bridge PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# ctest registration (spec 001 side-cleanup).
+# Test binaries were built but never registered with ctest before.
+# ─────────────────────────────────────────────────────────────────────
+add_test(NAME ZeroRuntimeTest      COMMAND test_runtime)
+add_test(NAME ZeroErrorsTest       COMMAND test_errors)
+add_test(NAME ZeroPrintTest        COMMAND test_print_enhanced)
+add_test(NAME ZeroSourceTest       COMMAND test_source)
+add_test(NAME ZeroLexerTest        COMMAND test_lexer)
+add_test(NAME ZeroParserTest       COMMAND test_parser)
+add_test(NAME ZeroTypesTest        COMMAND test_types)
+add_test(NAME ZeroSemaTest         COMMAND test_sema)
+add_test(NAME ZeroIRTest           COMMAND test_ir)
+add_test(NAME ZeroBackendTest      COMMAND test_backend)
+add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)
