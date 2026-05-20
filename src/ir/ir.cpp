@@ -16,13 +16,13 @@ std::string print_value(const Value& v) {
 
 std::string print_instruction(const Instruction& instr) {
     std::ostringstream ss;
-    
+
     if (instr.result.valid()) {
         ss << print_value(instr.result) << " = ";
     }
-    
+
     ss << opcode_name(instr.op);
-    
+
     // Special cases
     switch (instr.op) {
         case OpCode::CONST_INT:
@@ -54,7 +54,17 @@ std::string print_instruction(const Instruction& instr) {
             }
             break;
     }
-    
+
+    // Spec 002: trailing source-attribution comment, when present.
+    // We do not resolve to file:line:col here — the dumper has no SourceManager
+    // handle. The source_id + offset is enough for a tooling consumer; the
+    // diagnostic path (spec 003+) is where file:line:col rendering belongs.
+    if (instr.span.valid()) {
+        ss << "  ; @" << static_cast<uint32_t>(instr.span.source_id)
+           << ":" << instr.span.start_offset
+           << "-" << instr.span.end_offset;
+    }
+
     return ss.str();
 }
 

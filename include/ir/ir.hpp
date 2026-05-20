@@ -9,6 +9,7 @@
  */
 
 #include "types/types.hpp"
+#include "source/source.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -127,18 +128,24 @@ struct Instruction {
     OpCode op = OpCode::NOP;
     Value result;                    // Result value (if any)
     std::vector<Value> operands;     // Operand values
-    
+
     // For constants
     int64_t imm_int = 0;
     double imm_float = 0.0;
     std::string imm_str;
-    
+
     // For calls
     std::string callee;
-    
+
     // For branches
     uint32_t target_block = 0;       // For BR
     uint32_t else_block = 0;         // For COND_BR
+
+    // Source attribution (spec 002).
+    // Spec 002 contract: every Instruction emitted by IRBuilder carries the
+    // source span of the AST node it was lowered from. Instructions synthesized
+    // without a clear source location (e.g., implicit RET) carry Span::invalid().
+    source::Span span = source::Span::invalid();
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

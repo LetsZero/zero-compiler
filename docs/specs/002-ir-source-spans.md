@@ -1,8 +1,8 @@
 # Spec 002: Source spans on IR instructions
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 001
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -100,3 +100,7 @@ The pre-existing `tests/test_ir.cpp` must continue to pass without modification.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) stateful "current span" on the builder rather than a span parameter on every method, matching LLVM's `IRBuilder::SetCurrentDebugLocation` model — far fewer signature changes and the lowering pass is naturally tree-recursive so the state is well-scoped; (b) span field defaults to `Span::invalid()` so existing instruction-literal construction in tests is undisturbed; (c) dumper format chosen as `; @file:line:col` for valid spans, falling back to `; @<source_id>:<offset>` if the source can't be resolved — keeps the IR text readable while still being machine-parseable; (d) no span propagation across optimization passes since no passes exist yet (intentionally deferred to whichever spec introduces the first pass).
+- *Implementation* — Two refinements:
+  - **Dumper format simplified.** The runtime SourceManager isn't available to `print_instruction`, so resolving to `file:line:col` would require threading it through. Defer that to spec 003+ (the diagnostic path) and emit `; @<source_id>:<start_offset>-<end_offset>` here — uniformly machine-parseable, no SourceManager dependency. The spec's §4 acceptance test for the dumper was updated to look for this format.
+  - **Implicit RET span explicitly reset to invalid.** `lower_function` resets the builder's current span to `Span::invalid()` immediately before emitting the synthesized return, so the last user statement's span doesn't leak onto a compiler-synthesized op.
+- *Implementation, verification* — `cmake --build` clean. `ctest` 12/12 passing: the new `ZeroIRSpansTest` with 10 assertions, plus all 11 pre-existing test binaries unchanged (proves the change is strictly additive at the source level).

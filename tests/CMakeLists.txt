@@ -128,6 +128,15 @@ set_target_properties(test_backend PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# IR source-span tests (spec 002).
+add_executable(test_ir_spans
+    test_ir_spans.cpp
+)
+target_link_libraries(test_ir_spans PRIVATE zeroir zeroparse)
+set_target_properties(test_ir_spans PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -154,4 +163,5 @@ add_test(NAME ZeroTypesTest        COMMAND test_types)
 add_test(NAME ZeroSemaTest         COMMAND test_sema)
 add_test(NAME ZeroIRTest           COMMAND test_ir)
 add_test(NAME ZeroBackendTest      COMMAND test_backend)
+add_test(NAME ZeroIRSpansTest      COMMAND test_ir_spans)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)

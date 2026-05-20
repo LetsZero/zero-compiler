@@ -28,8 +28,19 @@ public:
     void set_insert_point(BasicBlock& bb) {
         current_block_ = &bb;
     }
-    
+
     BasicBlock& current_block() { return *current_block_; }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Source span attribution (spec 002)
+    //
+    // The current span is stamped onto every Instruction emitted via emit().
+    // The lowering pass calls set_current_span(node.span) on entry to each
+    // AST visitor; child visitors overwrite the value as they descend.
+    // ─────────────────────────────────────────────────────────────────────
+
+    void set_current_span(source::Span s) noexcept { current_span_ = s; }
+    source::Span current_span() const noexcept { return current_span_; }
     
     BasicBlock& create_block(const std::string& label = "") {
         return fn_.new_block(label);
@@ -183,8 +194,13 @@ public:
 private:
     Function& fn_;
     BasicBlock* current_block_;
-    
+    source::Span current_span_ = source::Span::invalid();
+
     void emit(Instruction instr) {
+        // Spec 002: every Instruction emitted via the builder is stamped with
+        // the current span. Lowering sets it; if no one set it, the span is
+        // invalid (acceptable for synthesized ops like implicit RET).
+        instr.span = current_span_;
         current_block_->add(std::move(instr));
     }
     
