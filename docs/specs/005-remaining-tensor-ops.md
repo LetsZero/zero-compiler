@@ -1,8 +1,8 @@
 # Spec 005: Wire the remaining tensor opcodes
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 003 (TENSOR_ADD wiring), spec 004 (source-level tensor + `+` dispatch)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -141,3 +141,7 @@ New test file: `tests/test_remaining_tensor_ops.cpp`.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) two new opcodes (`TENSOR_NEG`, `TENSOR_DIV`) are appended; (b) `matmul` is wired at the IR/interpreter level but explicitly *not* at the source level — no source program can construct the 2-D tensors it requires; (c) factored a static `run_binary` helper in the interpreter so each new binary op is ~5 lines, mirroring the runtime's own validator-helper pattern; (d) `relu` registered as a sema builtin; `matmul` is *not* (would require source path to ever fire); (e) `TENSOR_ALLOC` left stubbed and unused — calling it out as deletion-candidate for a future spec.
+- *Implementation* — Two refinements:
+  - **Parser fix for negative literals inside tensor brackets.** The first run hung on `tensor([-1.0, 0.0, 2.0, -3.0])` — spec 004's parser only accepted INT_LIT / FLOAT_LIT directly, not a `-` prefix. Without the prefix the parser failed and its error-recovery path looped. Extended the tensor-literal parser to accept an optional `MINUS` token before each element and negate it. Strictly speaking this fix belongs to spec 004's "tensor literal syntax," but since it surfaced here, fixing it here is more honest than ignoring it. The spec 004 amendment log should reference this fix; for now, the fix lives in spec 005's commit.
+  - **Final helper shape.** The spec sketch mentioned a template `run_binary(...)` helper; the actual implementation is a smaller, non-template `alloc_output_like(shape, ndim)` plus a switch inside the case statement that selects which runtime op function to call. Cleaner because the four binary ops differ only in which `zero::ops::*` they call, and a switch is more legible than a function pointer here.
+- *Implementation, verification* — `ctest` **15/15 passing**. The new `ZeroRemainingTensorOpsTest` covers all six new opcodes (sub/mul/div/neg/relu through source; matmul via hand-constructed IR), the mixed-expression case `relu(a - b) * c`, scalar-paths-untouched, and the shape-mismatch error path with span. All 14 pre-existing test binaries pass unmodified.

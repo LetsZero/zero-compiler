@@ -574,6 +574,8 @@ std::unique_ptr<Expr> Parser::parse_primary() {
         TensorLiteral lit;
         if (!check(TokenType::RBRACKET)) {
             for (;;) {
+                // Optional unary minus prefix on each element.
+                bool negate = match(TokenType::MINUS);
                 if (match(TokenType::INT_LIT)) {
                     int64_t v = 0;
                     auto [p, ec] = std::from_chars(
@@ -581,9 +583,11 @@ std::unique_ptr<Expr> Parser::parse_primary() {
                         previous_.text.data() + previous_.text.size(),
                         v);
                     (void)p; (void)ec;
-                    lit.values.push_back(static_cast<double>(v));
+                    double val = static_cast<double>(v);
+                    lit.values.push_back(negate ? -val : val);
                 } else if (match(TokenType::FLOAT_LIT)) {
-                    lit.values.push_back(std::stod(std::string(previous_.text)));
+                    double val = std::stod(std::string(previous_.text));
+                    lit.values.push_back(negate ? -val : val);
                 } else {
                     error("Expected numeric literal in tensor element list");
                     break;

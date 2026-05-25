@@ -149,13 +149,17 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
             Value lhs = e.left ? lower_expr(builder, *e.left) : Value{};
             Value rhs = e.right ? lower_expr(builder, *e.right) : Value{};
 
-            // Spec 004: dispatch '+' to TENSOR_ADD when either operand is
-            // tensor-typed. Other operators (-, *, /) on tensors are not
-            // yet wired; they fall through to the scalar emit which produces
-            // a non-functional result (acceptable per spec 004 §5).
-            if (e.op == ast::BinOp::ADD &&
-                (lhs.type.is_tensor() || rhs.type.is_tensor())) {
-                return builder.tensor_add(lhs, rhs);
+            // Spec 004 + 005: dispatch arithmetic ops to TENSOR_* when
+            // either operand is tensor-typed. Scalar paths fall through
+            // to the existing scalar emit unchanged.
+            if (lhs.type.is_tensor() || rhs.type.is_tensor()) {
+                switch (e.op) {
+                    case ast::BinOp::ADD: return builder.tensor_add(lhs, rhs);
+                    case ast::BinOp::SUB: return builder.tensor_sub(lhs, rhs);
+                    case ast::BinOp::MUL: return builder.tensor_mul(lhs, rhs);
+                    case ast::BinOp::DIV: return builder.tensor_div(lhs, rhs);
+                    default: break;  // comparisons / other ops: fall through
+                }
             }
 
             switch (e.op) {
@@ -175,6 +179,8 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
         else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
             Value operand = e.operand ? lower_expr(builder, *e.operand) : Value{};
             if (e.op == ast::UnaryOp::NEG) {
+                // Spec 005: tensor unary minus dispatches to TENSOR_NEG.
+                if (operand.type.is_tensor()) return builder.tensor_neg(operand);
                 return builder.neg(operand);
             }
             return operand;
@@ -183,6 +189,11 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
             std::vector<Value> args;
             for (auto& arg : e.args) {
                 args.push_back(lower_expr(builder, *arg));
+            }
+            // Spec 005: dispatch builtin tensor-aware calls. `relu(t)`
+            // with a single tensor argument lowers to TENSOR_RELU.
+            if (e.callee == "relu" && args.size() == 1 && args[0].type.is_tensor()) {
+                return builder.tensor_relu(args[0]);
             }
             // For now, assume void return type
             return builder.call(e.callee, args, types::Type::make_void());

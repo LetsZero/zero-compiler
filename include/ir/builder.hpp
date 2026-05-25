@@ -224,6 +224,16 @@ public:
         return instr.result;
     }
 
+    // Spec 005: the rest of the binary/unary tensor ops. Same shape and
+    // semantics as tensor_add — output type is tensor, operands are the
+    // tensor values, the interpreter does the runtime call.
+    Value tensor_sub(Value lhs, Value rhs) { return tensor_binary(OpCode::TENSOR_SUB, lhs, rhs); }
+    Value tensor_mul(Value lhs, Value rhs) { return tensor_binary(OpCode::TENSOR_MUL, lhs, rhs); }
+    Value tensor_div(Value lhs, Value rhs) { return tensor_binary(OpCode::TENSOR_DIV, lhs, rhs); }
+    Value tensor_neg(Value x)              { return tensor_unary(OpCode::TENSOR_NEG, x); }
+    Value tensor_relu(Value x)             { return tensor_unary(OpCode::TENSOR_RELU, x); }
+    Value tensor_matmul(Value lhs, Value rhs) { return tensor_binary(OpCode::TENSOR_MATMUL, lhs, rhs); }
+
 private:
     Function& fn_;
     BasicBlock* current_block_;
@@ -251,6 +261,25 @@ private:
         instr.op = op;
         instr.result = fn_.new_value(types::Type::make_int()); // bool as int
         instr.operands = {lhs, rhs};
+        emit(instr);
+        return instr.result;
+    }
+
+    // Spec 005: shared emit paths for the binary and unary tensor ops.
+    Value tensor_binary(OpCode op, Value lhs, Value rhs) {
+        Instruction instr;
+        instr.op = op;
+        instr.result = fn_.new_value(types::Type::make_tensor());
+        instr.operands = {lhs, rhs};
+        emit(instr);
+        return instr.result;
+    }
+
+    Value tensor_unary(OpCode op, Value x) {
+        Instruction instr;
+        instr.op = op;
+        instr.result = fn_.new_value(types::Type::make_tensor());
+        instr.operands = {x};
         emit(instr);
         return instr.result;
     }

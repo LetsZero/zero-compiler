@@ -5,9 +5,11 @@
 
 #include "backend/interpreter.hpp"
 
-// Spec 003: ops::add lives here. We avoid <zero/zero.hpp> to dodge the
-// zero::ir:: namespace collision (see interpreter.hpp).
+// Spec 003 / 005: pull in the specific runtime ops we use. We avoid the
+// umbrella <zero/zero.hpp> to dodge the zero::ir:: namespace collision
+// (see interpreter.hpp).
 #include <zero/ops/elementwise.hpp>
+#include <zero/ops/matmul.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -18,6 +20,45 @@ namespace zero {
 namespace backend {
 
 using namespace ir;
+
+// ─────────────────────────────────────────────────────────────────────
+// Spec 005: helpers shared across the wired tensor opcodes.
+// ─────────────────────────────────────────────────────────────────────
+
+namespace {
+
+// Allocate a fresh contiguous F32 output tensor with the given shape,
+// wrapped in a shared_ptr with an owns_data-respecting deleter. The
+// buffer is sentinel-filled with 0xAB so callers can observe the
+// runtime's "writes zero bytes on error" contract.
+static TensorPtr alloc_output_like(const int64_t* shape, int8_t ndim) {
+    TensorPtr out(
+        new zero::Tensor(zero::Tensor::alloc(shape, ndim, zero::DType::F32)),
+        [](zero::Tensor* p) { if (p && p->owns_data) p->free(); delete p; });
+    if (out->data == nullptr) {
+        throw std::runtime_error("tensor op: output allocation failed");
+    }
+    std::memset(out->data, 0xAB, out->nbytes());
+    return out;
+}
+
+// Format-and-throw helper. Centralises the message format that spec 003
+// established (op name + code + msg + @span fragment).
+static void throw_with_span(const char* op_name,
+                            const zero::Status& s,
+                            const source::Span& span) {
+    std::ostringstream msg;
+    msg << op_name << " failed: code=" << static_cast<int>(s.code);
+    if (s.msg) msg << " (" << s.msg << ")";
+    if (span.valid()) {
+        msg << " @" << static_cast<uint32_t>(span.source_id)
+            << ":" << span.start_offset
+            << "-" << span.end_offset;
+    }
+    throw std::runtime_error(msg.str());
+}
+
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main execution
@@ -307,56 +348,89 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             break;
         }
 
-        case OpCode::TENSOR_ADD: {
-            // Pull operands. Both must be tensor-valued; the LHS supplies
-            // the authoritative output shape.
+        // ─── Binary tensor ops (spec 003 + 005). Output shape = LHS shape.
+        case OpCode::TENSOR_ADD:
+        case OpCode::TENSOR_SUB:
+        case OpCode::TENSOR_MUL:
+        case OpCode::TENSOR_DIV: {
             RuntimeValue lhs_v = get_value(instr.operands[0]);
             RuntimeValue rhs_v = get_value(instr.operands[1]);
             if (!lhs_v.is_tensor() || !rhs_v.is_tensor()) {
-                throw std::runtime_error("tensor_add: non-tensor operand");
+                throw std::runtime_error("tensor binary op: non-tensor operand");
             }
             const TensorPtr& a = lhs_v.as_tensor();
             const TensorPtr& b = rhs_v.as_tensor();
 
-            // Allocate output with LHS's shape.
             int64_t shape_arr[zero::MAX_DIMS] = {0};
             for (int8_t i = 0; i < a->ndim; ++i) shape_arr[i] = a->shape[i];
-            TensorPtr out(
-                new zero::Tensor(zero::Tensor::alloc(shape_arr, a->ndim, zero::DType::F32)),
-                [](zero::Tensor* p) { if (p && p->owns_data) p->free(); delete p; });
+            TensorPtr out = alloc_output_like(shape_arr, a->ndim);
 
-            if (out->data == nullptr) {
-                throw std::runtime_error("tensor_add: output allocation failed");
+            zero::Status s;
+            const char* op_name = "tensor_op";
+            switch (instr.op) {
+                case OpCode::TENSOR_ADD: s = zero::ops::add(*a, *b, *out); op_name = "tensor_add"; break;
+                case OpCode::TENSOR_SUB: s = zero::ops::sub(*a, *b, *out); op_name = "tensor_sub"; break;
+                case OpCode::TENSOR_MUL: s = zero::ops::mul(*a, *b, *out); op_name = "tensor_mul"; break;
+                case OpCode::TENSOR_DIV: s = zero::ops::div(*a, *b, *out); op_name = "tensor_div"; break;
+                default: break;  // unreachable
             }
+            if (s.is_error()) throw_with_span(op_name, s, instr.span);
+            result = RuntimeValue(std::move(out));
+            break;
+        }
 
-            // Sentinel-fill the output BEFORE the call, so callers can verify
-            // the runtime's "writes zero bytes on error" contract is preserved
-            // across the bridge. 0xAB matches the runtime's own test sentinel.
-            std::memset(out->data, 0xAB, out->nbytes());
-
-            // Call into the frozen runtime.
-            zero::Status s = zero::ops::add(*a, *b, *out);
-            if (s.is_error()) {
-                std::ostringstream msg;
-                msg << "tensor_add failed: code=" << static_cast<int>(s.code);
-                if (s.msg) msg << " (" << s.msg << ")";
-                if (instr.span.valid()) {
-                    msg << " @" << static_cast<uint32_t>(instr.span.source_id)
-                        << ":" << instr.span.start_offset
-                        << "-" << instr.span.end_offset;
-                }
-                throw std::runtime_error(msg.str());
+        // ─── Unary tensor ops (spec 005). Output shape = operand shape.
+        case OpCode::TENSOR_NEG:
+        case OpCode::TENSOR_RELU: {
+            RuntimeValue x_v = get_value(instr.operands[0]);
+            if (!x_v.is_tensor()) {
+                throw std::runtime_error("tensor unary op: non-tensor operand");
             }
+            const TensorPtr& x = x_v.as_tensor();
+
+            int64_t shape_arr[zero::MAX_DIMS] = {0};
+            for (int8_t i = 0; i < x->ndim; ++i) shape_arr[i] = x->shape[i];
+            TensorPtr out = alloc_output_like(shape_arr, x->ndim);
+
+            zero::Status s;
+            const char* op_name = "tensor_op";
+            switch (instr.op) {
+                case OpCode::TENSOR_NEG:  s = zero::ops::neg(*x, *out);  op_name = "tensor_neg";  break;
+                case OpCode::TENSOR_RELU: s = zero::ops::relu(*x, *out); op_name = "tensor_relu"; break;
+                default: break;  // unreachable
+            }
+            if (s.is_error()) throw_with_span(op_name, s, instr.span);
+            result = RuntimeValue(std::move(out));
+            break;
+        }
+
+        // ─── Matrix multiplication (spec 005). Output shape = [A.rows, B.cols].
+        case OpCode::TENSOR_MATMUL: {
+            RuntimeValue lhs_v = get_value(instr.operands[0]);
+            RuntimeValue rhs_v = get_value(instr.operands[1]);
+            if (!lhs_v.is_tensor() || !rhs_v.is_tensor()) {
+                throw std::runtime_error("tensor_matmul: non-tensor operand");
+            }
+            const TensorPtr& a = lhs_v.as_tensor();
+            const TensorPtr& b = rhs_v.as_tensor();
+            // matmul requires rank-2; the runtime returns INVALID_ARGUMENT
+            // otherwise. We don't pre-validate; just construct the output
+            // shape from A.rows × B.cols and let the runtime decide.
+            int64_t shape_arr[2] = {
+                a->ndim >= 1 ? a->shape[0] : 0,
+                b->ndim >= 2 ? b->shape[1] : 0
+            };
+            TensorPtr out = alloc_output_like(shape_arr, 2);
+
+            zero::Status s = zero::ops::matmul(*a, *b, *out);
+            if (s.is_error()) throw_with_span("tensor_matmul", s, instr.span);
             result = RuntimeValue(std::move(out));
             break;
         }
 
         case OpCode::TENSOR_ALLOC:
-        case OpCode::TENSOR_SUB:
-        case OpCode::TENSOR_MUL:
-        case OpCode::TENSOR_MATMUL:
-        case OpCode::TENSOR_RELU:
-            // Still stubbed — wire in a follow-up spec.
+            // Stubbed — TENSOR_CONST_F32 covers literal construction; this
+            // opcode has no users today.
             result = RuntimeValue(static_cast<void*>(nullptr));
             break;
             

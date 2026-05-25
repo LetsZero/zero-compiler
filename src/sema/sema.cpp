@@ -140,6 +140,15 @@ void Sema::register_builtins() {
     capture_sig.return_type = types::Type::make_void();
     capture_sig.is_variadic = true;
     functions_["capture"] = capture_sig;
+
+    // relu(x) - dispatched to TENSOR_RELU at lowering when arg is tensor
+    // (spec 005). Variadic so we don't yet enforce arity; lowering and
+    // the runtime do their own checks.
+    FnSignature relu_sig;
+    relu_sig.name = "relu";
+    relu_sig.return_type = types::Type::make_tensor();
+    relu_sig.is_variadic = true;
+    functions_["relu"] = relu_sig;
 }
 
 void Sema::check_fn(ast::FnDecl& fn) {

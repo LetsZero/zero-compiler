@@ -86,6 +86,10 @@ enum class OpCode {
     // Pure helper op for tests; production lowering will not emit it.
     // shape lives in imm_shape, values in imm_floats.
     TENSOR_CONST_F32,
+
+    // Spec 005: more tensor ops wired to the runtime.
+    TENSOR_NEG,     // result = -op0
+    TENSOR_DIV,     // result = op0 / op1 (elementwise)
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -119,6 +123,8 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_MATMUL: return "tensor.matmul";
         case OpCode::TENSOR_RELU: return "tensor.relu";
         case OpCode::TENSOR_CONST_F32: return "tensor.const.f32";
+        case OpCode::TENSOR_NEG: return "tensor.neg";
+        case OpCode::TENSOR_DIV: return "tensor.div";
         default: return "unknown";
     }
 }
