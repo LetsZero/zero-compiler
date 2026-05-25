@@ -148,7 +148,16 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
         else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
             Value lhs = e.left ? lower_expr(builder, *e.left) : Value{};
             Value rhs = e.right ? lower_expr(builder, *e.right) : Value{};
-            
+
+            // Spec 004: dispatch '+' to TENSOR_ADD when either operand is
+            // tensor-typed. Other operators (-, *, /) on tensors are not
+            // yet wired; they fall through to the scalar emit which produces
+            // a non-functional result (acceptable per spec 004 §5).
+            if (e.op == ast::BinOp::ADD &&
+                (lhs.type.is_tensor() || rhs.type.is_tensor())) {
+                return builder.tensor_add(lhs, rhs);
+            }
+
             switch (e.op) {
                 case ast::BinOp::ADD: return builder.add(lhs, rhs);
                 case ast::BinOp::SUB: return builder.sub(lhs, rhs);
@@ -180,6 +189,16 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
         }
         else if constexpr (std::is_same_v<T, ast::GroupExpr>) {
             return e.inner ? lower_expr(builder, *e.inner) : Value{};
+        }
+        else if constexpr (std::is_same_v<T, ast::TensorLiteral>) {
+            // Spec 004: lower to TENSOR_CONST_F32 with shape derived from
+            // the value list length. Integer elements were already widened
+            // to double at parse time; cast to float here.
+            std::vector<int64_t> shape = { static_cast<int64_t>(e.values.size()) };
+            std::vector<float> data;
+            data.reserve(e.values.size());
+            for (double v : e.values) data.push_back(static_cast<float>(v));
+            return builder.tensor_const_f32(std::move(shape), std::move(data));
         }
         else {
             return Value{};

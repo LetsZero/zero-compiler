@@ -557,14 +557,51 @@ std::unique_ptr<Expr> Parser::parse_primary() {
         Span start = previous_.span;
         auto inner = parse_expr();
         consume(TokenType::RPAREN, "Expected ')' after expression");
-        
+
         GroupExpr group;
         group.inner = std::move(inner);
         group.span = start.merge(previous_.span);
-        
+
         return make_expr(std::move(group));
     }
-    
+
+    // Tensor literal: `tensor ( [ num (, num)* ] )` (spec 004).
+    if (match(TokenType::TENSOR)) {
+        Span start = previous_.span;
+        consume(TokenType::LPAREN, "Expected '(' after 'tensor'");
+        consume(TokenType::LBRACKET, "Expected '[' to start tensor element list");
+
+        TensorLiteral lit;
+        if (!check(TokenType::RBRACKET)) {
+            for (;;) {
+                if (match(TokenType::INT_LIT)) {
+                    int64_t v = 0;
+                    auto [p, ec] = std::from_chars(
+                        previous_.text.data(),
+                        previous_.text.data() + previous_.text.size(),
+                        v);
+                    (void)p; (void)ec;
+                    lit.values.push_back(static_cast<double>(v));
+                } else if (match(TokenType::FLOAT_LIT)) {
+                    lit.values.push_back(std::stod(std::string(previous_.text)));
+                } else {
+                    error("Expected numeric literal in tensor element list");
+                    break;
+                }
+                if (!match(TokenType::COMMA)) break;
+            }
+        }
+        consume(TokenType::RBRACKET, "Expected ']' to end tensor element list");
+        consume(TokenType::RPAREN, "Expected ')' to end tensor literal");
+
+        if (lit.values.empty()) {
+            error("Tensor literal must have at least one element");
+        }
+
+        lit.span = start.merge(previous_.span);
+        return make_expr(std::move(lit));
+    }
+
     error("Expected expression");
     return nullptr;
 }

@@ -1,8 +1,8 @@
 # Spec 004: Source-level tensor literals and `+` dispatch
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 001 (build), spec 002 (IR spans), spec 003 (TENSOR_ADD wiring)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -162,3 +162,7 @@ New test file: `tests/test_source_tensor.cpp`. End-to-end through `SourceManager
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) keyword chosen as `tensor` rather than `[1, 2, 3]: tensor` style annotations — keyword form is unambiguous and parser-cheap; (b) integer literals inside the bracket list silently widen to float, matching how most ML languages handle mixed-int-float literals; (c) only `+` is dispatched in this spec; other operators wait for their own spec; (d) `capture` is a registered external, not a language builtin — keeps the language surface small; (e) sema gets a no-op pass for `TensorLiteral` to avoid crashes; type-checking of tensor ops is explicitly deferred to a future spec.
+- *Implementation* — Two implementation notes:
+  - **Sema `capture` builtin.** Since `capture(c)` would otherwise fail sema's `UNDEFINED_FUNCTION` check, registered `capture` as a variadic builtin in `Sema::register_builtins()` alongside the existing `print` / `log`. This is the smallest change that lets the test source pass sema; a future spec may introduce a proper `extern fn` declaration instead.
+  - **Sema entry point named `analyze`, not `check`.** I guessed `sema.check(prog)` from the spec sketch; the actual API is `sema.analyze(prog)`. Caught immediately by the build, fixed in the test, no harm.
+- *Implementation, verification* — `ctest` **14/14 passing**. The new `ZeroSourceTensorTest` exercises all six §4 cases: happy path through real source, int→float widening, scalar-`+` not affected, empty-tensor-literal parse error, `tensor` without parens parse error, and span attribution on both `TENSOR_CONST_F32` and `TENSOR_ADD`. All 13 pre-existing test binaries continue to pass unmodified.

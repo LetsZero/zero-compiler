@@ -32,6 +32,7 @@ enum class TokenType {
     ELSE,           // else
     WHILE,          // while
     USE,            // use
+    TENSOR,         // tensor (spec 004)
     
     // Operators
     PLUS,           // +
@@ -118,6 +119,7 @@ inline const char* Token::type_name(TokenType t) {
         case TokenType::ELSE:       return "ELSE";
         case TokenType::WHILE:      return "WHILE";
         case TokenType::USE:        return "USE";
+        case TokenType::TENSOR:     return "TENSOR";
         case TokenType::PLUS:       return "PLUS";
         case TokenType::MINUS:      return "MINUS";
         case TokenType::STAR:       return "STAR";

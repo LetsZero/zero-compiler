@@ -130,6 +130,16 @@ void Sema::register_builtins() {
     log_sig.return_type = types::Type::make_void();
     log_sig.is_variadic = true;
     functions_["log"] = log_sig;
+
+    // capture(value) - test helper that lets a test observe a single
+    // RuntimeValue post-execution. Spec 004 uses this for end-to-end
+    // tensor verification. Variadic to accept any single arg without
+    // type-checking it for v1.
+    FnSignature capture_sig;
+    capture_sig.name = "capture";
+    capture_sig.return_type = types::Type::make_void();
+    capture_sig.is_variadic = true;
+    functions_["capture"] = capture_sig;
 }
 
 void Sema::check_fn(ast::FnDecl& fn) {
@@ -305,6 +315,12 @@ types::Type Sema::check_expr(ast::Expr& expr) {
         }
         else if constexpr (std::is_same_v<T, ast::GroupExpr>) {
             return e.inner ? check_expr(*e.inner) : types::Type::make_unknown();
+        }
+        else if constexpr (std::is_same_v<T, ast::TensorLiteral>) {
+            // Spec 004: tensor literals are well-formed by parse-time;
+            // the parser rejects the empty list. No further sema checks
+            // for v1; richer shape/dtype checking comes later.
+            return types::Type::make_tensor();
         }
         else {
             return types::Type::make_unknown();

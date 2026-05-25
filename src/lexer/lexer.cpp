@@ -228,6 +228,8 @@ TokenType Lexer::identifier_type() {
             return check_keyword(1, 2, "et", TokenType::LET);
         case 'r':
             return check_keyword(1, 5, "eturn", TokenType::RETURN);
+        case 't':
+            return check_keyword(1, 5, "ensor", TokenType::TENSOR);
         case 'u':
             return check_keyword(1, 2, "se", TokenType::USE);
         case 'w':

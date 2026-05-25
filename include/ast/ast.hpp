@@ -126,6 +126,13 @@ struct GroupExpr {
     source::Span span;
 };
 
+// 1-D F32 tensor literal: `tensor([1.0, 2.0, 3.0])` (spec 004).
+// Integer elements are widened to float in lowering.
+struct TensorLiteral {
+    std::vector<double> values;
+    source::Span span;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Expr variant
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,7 +145,8 @@ using ExprVariant = std::variant<
     BinaryExpr,
     UnaryExpr,
     CallExpr,
-    GroupExpr
+    GroupExpr,
+    TensorLiteral
 >;
 
 struct Expr {
