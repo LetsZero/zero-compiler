@@ -577,6 +577,7 @@ std::unique_ptr<Expr> Parser::parse_primary() {
         consume(TokenType::LBRACKET, "Expected '[' to start tensor element list");
 
         TensorLiteral lit;
+        bool element_loop_failed = false;
         if (!check(TokenType::RBRACKET)) {
             for (;;) {
                 // Optional unary minus prefix on each element.
@@ -595,11 +596,27 @@ std::unique_ptr<Expr> Parser::parse_primary() {
                     lit.values.push_back(negate ? -val : val);
                 } else {
                     error("Expected numeric literal in tensor element list");
+                    element_loop_failed = true;
                     break;
                 }
                 if (!match(TokenType::COMMA)) break;
             }
         }
+
+        // Spec 007: recovery — if the element loop bailed, advance the
+        // cursor past tokens until a known stopping point so the
+        // surrounding consume() calls and the enclosing parse loop can
+        // make progress. Without this, the cursor stays parked on the
+        // offending token and any higher-level loop spins forever.
+        if (element_loop_failed) {
+            while (!current_.is_eof()
+                   && !check(TokenType::RBRACKET)
+                   && !check(TokenType::RPAREN)
+                   && !check(TokenType::SEMICOLON)) {
+                advance();
+            }
+        }
+
         consume(TokenType::RBRACKET, "Expected ']' to end tensor element list");
         consume(TokenType::RPAREN, "Expected ')' to end tensor literal");
 

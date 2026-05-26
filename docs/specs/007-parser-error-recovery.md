@@ -1,8 +1,8 @@
 # Spec 007: Parser error-recovery hardening
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** none (touches parser only)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -94,3 +94,4 @@ New test file: `tests/test_parser_recovery.cpp`.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) recovery scope is local to the tensor-literal branch, not a global change to `error()` or `synchronize()`; (b) synchronisation points are `RBRACKET` / `RPAREN` / `SEMICOLON` / `EOF` (not `RBRACE`) — the brace is too coarse and would skip past the enclosing statement; (c) the test asserts a wall-clock budget of 1 second to catch future regressions of the same hang pattern; (d) deliberately *not* adding a general no-progress guard in the function body loop — saves it for a future spec if a different site triggers the same defect.
+- *Implementation, verification* — `ctest` **17/17 passing**. The new `ZeroParserRecoveryTest` has four cases: bad-token-in-brackets (the previously-hanging pattern), garbled-brackets-don't-block-other-functions, well-formed input still parses cleanly, and a regression guard for spec 005's negative-literal repro. Each one enforces a 1 s wall-clock budget. All 16 pre-existing test binaries pass unmodified.
