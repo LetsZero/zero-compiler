@@ -25,7 +25,13 @@ public:
 private:
     // Symbol table (variable name -> Value)
     std::unordered_map<std::string, Value> symbols_;
-    
+
+    // Spec 006: function-name -> declared return type. Populated by a
+    // forward pass at the top of lower() so CallExpr lowering knows the
+    // result type of user-defined functions and can give the CALL
+    // instruction a typed result Value.
+    std::unordered_map<std::string, types::Type> fn_return_types_;
+
     void lower_function(Module& mod, ast::FnDecl& fn);
     void lower_stmt(IRBuilder& builder, ast::Stmt& stmt);
     Value lower_expr(IRBuilder& builder, ast::Expr& expr);

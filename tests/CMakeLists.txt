@@ -164,6 +164,15 @@ set_target_properties(test_remaining_tensor_ops PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Function-level tensor I/O (spec 006).
+add_executable(test_function_tensor_io
+    test_function_tensor_io.cpp
+)
+target_link_libraries(test_function_tensor_io PRIVATE zerobackend zeroparse zerosema)
+set_target_properties(test_function_tensor_io PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -194,4 +203,5 @@ add_test(NAME ZeroIRSpansTest      COMMAND test_ir_spans)
 add_test(NAME ZeroTensorAddE2ETest COMMAND test_tensor_add_e2e)
 add_test(NAME ZeroSourceTensorTest COMMAND test_source_tensor)
 add_test(NAME ZeroRemainingTensorOpsTest COMMAND test_remaining_tensor_ops)
+add_test(NAME ZeroFunctionTensorIOTest COMMAND test_function_tensor_io)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)

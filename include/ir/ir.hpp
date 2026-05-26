@@ -194,7 +194,12 @@ struct Function {
     std::vector<types::Type> param_types;
     types::Type return_type;
     std::vector<BasicBlock> blocks;
-    
+
+    // Parameter SSA values, in declaration order. Populated by the
+    // lowering pass (spec 006). params.size() == param_types.size().
+    // The interpreter binds incoming call arguments to these Values.
+    std::vector<Value> params;
+
     // SSA value counter
     uint32_t next_value_id = 1;
     uint32_t next_block_id = 0;

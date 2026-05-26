@@ -8,9 +8,13 @@ This file is append-only. When an item is fixed, the entry stays (with a striket
 
 ## Robustness
 
-- **Parser error-recovery loop on bad tensor literal contents.** When the parser hits an unexpected token inside a `tensor([...])` element list, error recovery loops indefinitely instead of synchronising to the next statement. Surfaced by spec 005 (a missing `MINUS` prefix handler caused a 255 s hang under `ctest`). The immediate trigger was patched (spec 005 added MINUS support), but the underlying recovery bug remains and will bite again on any other unexpected token inside the brackets.
+- **Parser error-recovery loop on bad tensor literal contents.** When the parser hits an unexpected token inside a `tensor([...])` element list, error recovery loops indefinitely instead of synchronising to the next statement. Surfaced by spec 005 (a missing `MINUS` prefix handler caused a 255 s hang under `ctest`) and again by spec 006 (a missing `parse_type()` case for the `tensor` keyword caused another 339 s hang). The two immediate triggers were patched, but the underlying recovery behaviour stays brittle.
   - Repro: any source with an unsupported token inside a tensor literal, e.g. `tensor([1, "x", 2])`.
-  - Suggested fix: in the bracket-element loop, after `error()` and `break`, advance past tokens until the next `RBRACKET`, `RPAREN`, or `SEMICOLON` before continuing the parse.
+  - Suggested fix: in the bracket-element loop, after `error()` and `break`, advance past tokens until the next `RBRACKET`, `RPAREN`, or `SEMICOLON` before continuing the parse. More broadly, audit every `parser.error()` site to confirm it advances the cursor.
+
+- **Interpreter call-stack reference invalidation.** `Interpreter::call_function` holds an `auto& current = call_stack_.back()` reference and then recursively calls itself (via `exec_instruction → CALL → call_function`). If the nested call's `push_back` reallocates the underlying `std::vector`, `current` dangles. Spec 006 surfaced this — it was the first spec with real nested calls. Patched by `call_stack_.reserve(1024)` to prevent reallocation, but the proper fix is to refactor the loop to use a frame index (`call_stack_[frame_idx]`) rather than a captured reference.
+  - Affected file: `src/backend/interpreter.cpp` around the `call_function` body.
+  - Why it matters: any program with 1024+ nested calls (deep recursion) would hit the bug again; and the reserve hack is a code smell.
 
 - **`Reporter`-based diagnostics for runtime errors.** The interpreter throws `std::runtime_error` for tensor op failures (spec 003 amendment log). A future spec should route through the existing `diagnostics::Reporter` so errors render with source-line context, not just a one-line string. The throw path is clean and structured; the migration is straightforward.
 

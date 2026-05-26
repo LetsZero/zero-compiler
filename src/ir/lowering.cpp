@@ -29,12 +29,24 @@ static types::Type ast_to_type(ast::TypeKind kind) {
 
 Module Lowering::lower(ast::Program& prog) {
     Module mod;
-    
+
+    // Spec 006: forward pass — collect every user-defined function's
+    // declared return type so CallExpr lowering can give CALL a typed
+    // result Value. Without this, calls like `let b = double_it(a)`
+    // get an invalid (void) result Value and `b` cannot be used.
+    fn_return_types_.clear();
+    for (auto& fn_ast : prog.functions) {
+        types::Type ret_type = fn_ast.return_type
+            ? ast_to_type(fn_ast.return_type->kind)
+            : types::Type::make_void();
+        fn_return_types_[fn_ast.name] = ret_type;
+    }
+
     // Lower each function
     for (auto& fn_ast : prog.functions) {
         lower_function(mod, fn_ast);
     }
-    
+
     return mod;
 }
 
@@ -54,10 +66,14 @@ void Lowering::lower_function(Module& mod, ast::FnDecl& fn_ast) {
     Function& fn = mod.add_function(fn_ast.name, param_types, ret_type);
     IRBuilder builder(fn);
 
-    // Create parameter values and add to symbol table
+    // Create parameter values, record them on the IR Function (spec 006
+    // — the interpreter binds incoming call args to fn.params[i]), and
+    // add them to the lowering's symbol table by name.
     symbols_.clear();
+    fn.params.clear();
     for (size_t i = 0; i < fn_ast.params.size(); ++i) {
         Value param_val = fn.new_value(param_types[i]);
+        fn.params.push_back(param_val);
         symbols_[fn_ast.params[i].name] = param_val;
     }
 
@@ -195,8 +211,13 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
             if (e.callee == "relu" && args.size() == 1 && args[0].type.is_tensor()) {
                 return builder.tensor_relu(args[0]);
             }
-            // For now, assume void return type
-            return builder.call(e.callee, args, types::Type::make_void());
+            // Spec 006: use the declared return type of the user function
+            // when known; fall back to void for builtins like print/capture.
+            auto ret_it = fn_return_types_.find(e.callee);
+            types::Type ret_type = (ret_it != fn_return_types_.end())
+                ? ret_it->second
+                : types::Type::make_void();
+            return builder.call(e.callee, args, ret_type);
         }
         else if constexpr (std::is_same_v<T, ast::GroupExpr>) {
             return e.inner ? lower_expr(builder, *e.inner) : Value{};

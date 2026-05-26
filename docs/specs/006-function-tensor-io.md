@@ -1,8 +1,8 @@
 # Spec 006: Function-level tensor I/O
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 003, spec 004, spec 005
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -155,3 +155,8 @@ New test file: `tests/test_function_tensor_io.cpp`.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) the value-storage migration is unconditional — the global `values_` map goes away, every value lives in the active frame's locals; (b) keep `get_value`/`set_value` as the only accessors so the migration is a 5-line change to two methods; (c) parameter binding happens **before** `call_stack_.push_back` so the very first instruction of the callee can already see the args; (d) `ir::Function::params` is a `std::vector<Value>`, parallel to `param_types`, never separately allocated.
+- *Implementation* — Three bugs surfaced (and were fixed) during implementation:
+  - **`parse_type()` didn't accept the `tensor` keyword.** Spec 004 made `tensor` a `TokenType::TENSOR` keyword for the literal form, but `parse_type()` still expected an `IDENT` matching the string `"tensor"`. So `(x: tensor)` failed to parse and the parser's error-recovery looped, producing a 339 s hang (same pattern as spec 005's first run). Fixed by accepting `TokenType::TENSOR` in `parse_type()` as `TypeKind::TENSOR`. Strictly a spec 004 carry-over; logged a finer-grained `DEFERRED.md` entry noting the recovery bug should be hardened.
+  - **`Lowering::CallExpr` always assumed void return type.** Even when the callee was a user-defined function returning `tensor`, the generated `CALL` instruction had an invalid result `Value`, so `let b = double_it(a)` couldn't be bound to anything usable. Fixed by adding a forward-pass `fn_return_types_` map in `Lowering::lower()` and using it in the CallExpr branch.
+  - **Interpreter call-stack reference invalidation.** `call_function` holds `auto& current = call_stack_.back()` and then recursively calls `call_function` via `exec_instruction → CALL`. If the nested push reallocated the underlying `std::vector`, `current` dangled and the second iteration read garbage state, producing a `std::bad_variant_access` deep inside an op's variant read. Patched by `call_stack_.reserve(1024)` in `execute()`; the proper index-based refactor of that loop is logged in `docs/DEFERRED.md`.
+- *Implementation, verification* — `ctest` **16/16 passing**. The new `ZeroFunctionTensorIOTest` covers a single-param tensor function (`double_it`), tensor function composition (`neg_relu`), two-param tensor function (`weighted_add` — the test that surfaced the reallocation bug), and the scalar-param regression (`id(7)`). All 15 pre-existing test binaries pass unmodified.

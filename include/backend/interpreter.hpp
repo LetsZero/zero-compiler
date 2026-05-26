@@ -119,10 +119,9 @@ private:
     // External functions
     std::unordered_map<std::string, ExternalFn> externals_;
     
-    // Value storage (SSA id -> runtime value)
-    std::unordered_map<uint32_t, RuntimeValue> values_;
-    
-    // Call stack for functions
+    // Call stack for functions. SSA value storage lives on each frame's
+    // `locals` map — spec 006 migrated away from a global value map so
+    // function calls don't have id collisions across frames.
     struct CallFrame {
         const ir::Function* fn;
         size_t block_idx;
@@ -130,31 +129,34 @@ private:
         std::unordered_map<uint32_t, RuntimeValue> locals;
     };
     std::vector<CallFrame> call_stack_;
-    
+
     // Exit code
     int exit_code_ = 0;
-    
+
     // ─────────────────────────────────────────────────────────────────────
     // Execution
     // ─────────────────────────────────────────────────────────────────────
-    
-    RuntimeValue call_function(const ir::Function& fn, 
+
+    RuntimeValue call_function(const ir::Function& fn,
                                 std::vector<RuntimeValue> args);
     RuntimeValue exec_block(const ir::BasicBlock& bb);
     RuntimeValue exec_instruction(const ir::Instruction& instr);
-    
+
     // ─────────────────────────────────────────────────────────────────────
-    // Value access
+    // Value access — read/write the active frame's locals (spec 006).
     // ─────────────────────────────────────────────────────────────────────
-    
+
     RuntimeValue get_value(const ir::Value& v) {
-        auto it = values_.find(v.id);
-        if (it != values_.end()) return it->second;
+        if (call_stack_.empty()) return RuntimeValue{};
+        auto& locals = call_stack_.back().locals;
+        auto it = locals.find(v.id);
+        if (it != locals.end()) return it->second;
         return RuntimeValue{};
     }
-    
+
     void set_value(const ir::Value& v, RuntimeValue rv) {
-        values_[v.id] = rv;
+        if (call_stack_.empty()) return;
+        call_stack_.back().locals[v.id] = std::move(rv);
     }
 };
 

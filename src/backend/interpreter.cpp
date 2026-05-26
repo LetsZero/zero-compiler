@@ -66,8 +66,12 @@ static void throw_with_span(const char* op_name,
 
 RuntimeValue Interpreter::execute(Module& mod, const std::string& entry) {
     module_ = &mod;
-    values_.clear();
     call_stack_.clear();
+    // Spec 006: reserve so nested calls cannot reallocate the call stack
+    // and invalidate references held inside the per-frame loop below.
+    // Diagnostic fix; the proper index-based rewrite of that loop is a
+    // separate cleanup (tracked in docs/DEFERRED.md).
+    call_stack_.reserve(1024);
     
     // Find entry function
     Function* entry_fn = mod.get_function(entry);
@@ -94,15 +98,18 @@ RuntimeValue Interpreter::call_function(const Function& fn,
         return ext_it->second(args);
     }
     
-    // Push call frame
+    // Push call frame, binding incoming args to the callee's parameter
+    // SSA values before the frame goes on the stack (spec 006). Binding
+    // before push means the very first instruction of the callee can
+    // already see the args via get_value().
     CallFrame frame;
     frame.fn = &fn;
     frame.block_idx = 0;
     frame.instr_idx = 0;
-    call_stack_.push_back(frame);
-    
-    // TODO: Bind arguments to parameter values
-    // For now, we don't pass arguments through IR
+    for (size_t i = 0; i < args.size() && i < fn.params.size(); ++i) {
+        frame.locals[fn.params[i].id] = std::move(args[i]);
+    }
+    call_stack_.push_back(std::move(frame));
     
     // Execute blocks
     RuntimeValue result;

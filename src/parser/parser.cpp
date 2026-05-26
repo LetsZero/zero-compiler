@@ -201,20 +201,25 @@ std::vector<Param> Parser::parse_params() {
 Type Parser::parse_type() {
     Type t;
     t.span = current_.span;
-    
-    if (check(TokenType::IDENT)) {
+
+    // `tensor` became a keyword in spec 004, so it lexes as TokenType::TENSOR
+    // rather than IDENT. Accept either spelling: the keyword in type
+    // position means TypeKind::TENSOR; an identifier matches by name.
+    if (check(TokenType::TENSOR)) {
+        advance();
+        t.kind = TypeKind::TENSOR;
+    } else if (check(TokenType::IDENT)) {
         std::string_view name = current_.text;
         advance();
-        
+
         if (name == "int") t.kind = TypeKind::INT;
         else if (name == "float") t.kind = TypeKind::FLOAT;
         else if (name == "void") t.kind = TypeKind::VOID;
-        else if (name == "tensor") t.kind = TypeKind::TENSOR;
         else t.kind = TypeKind::UNKNOWN;
     } else {
         error("Expected type");
     }
-    
+
     return t;
 }
 
