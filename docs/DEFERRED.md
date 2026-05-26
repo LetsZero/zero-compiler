@@ -1,0 +1,46 @@
+# Deferred items
+
+> Things we deliberately did not do, with enough context to pick them up later. Not a wishlist — these are real items surfaced by past specs that we chose not to fix in the moment.
+
+This file is append-only. When an item is fixed, the entry stays (with a strikethrough and a pointer to the spec that resolved it). Don't delete entries.
+
+---
+
+## Robustness
+
+- **Parser error-recovery loop on bad tensor literal contents.** When the parser hits an unexpected token inside a `tensor([...])` element list, error recovery loops indefinitely instead of synchronising to the next statement. Surfaced by spec 005 (a missing `MINUS` prefix handler caused a 255 s hang under `ctest`). The immediate trigger was patched (spec 005 added MINUS support), but the underlying recovery bug remains and will bite again on any other unexpected token inside the brackets.
+  - Repro: any source with an unsupported token inside a tensor literal, e.g. `tensor([1, "x", 2])`.
+  - Suggested fix: in the bracket-element loop, after `error()` and `break`, advance past tokens until the next `RBRACKET`, `RPAREN`, or `SEMICOLON` before continuing the parse.
+
+- **`Reporter`-based diagnostics for runtime errors.** The interpreter throws `std::runtime_error` for tensor op failures (spec 003 amendment log). A future spec should route through the existing `diagnostics::Reporter` so errors render with source-line context, not just a one-line string. The throw path is clean and structured; the migration is straightforward.
+
+## API hygiene
+
+- **`zero::ir::` namespace collision between the compiler and the runtime.** Both repos define `Function` and `BasicBlock` in `namespace zero::ir`. Spec 003 worked around it by switching the interpreter from `<zero/zero.hpp>` to narrow `<zero/core/*.hpp>` and `<zero/ops/*.hpp>` includes. The umbrella header is unsafe to include anywhere in the compiler tree.
+  - Suggested fix: rename the compiler's IR to `zero::compiler::ir`. Touches every file that says `namespace ir` or `zero::ir::` — significant but mechanical. Defer until a real use case wants the umbrella include.
+
+- **`OpCode::TENSOR_ALLOC` is unused.** `TENSOR_CONST_F32` covers tensor construction; nothing emits or consumes `TENSOR_ALLOC`. Either delete or repurpose. Repurpose candidate: a no-data allocation (uninit output buffer) that the compiler can emit ahead of a `TENSOR_*` op so the buffer is explicit in IR instead of hidden inside the interpreter.
+
+- **Duplicate-library link warning.** Several test targets show `ld: warning: ignoring duplicate libraries: '../lib/libzeroparse.a'` because they link both `zerosema` and `zeroparse` directly, and `zerosema` already pulls `zeroparse` transitively. Cosmetic; clean by removing the redundant direct link.
+
+## Compiler features deferred
+
+- **2-D (and N-D) tensor literals.** Spec 004 limited to 1-D. Required to make `matmul` reachable from source (currently wired but only IR-constructable). Suggested syntax: `tensor([[1, 2], [3, 4]])` with nested brackets — parser recurses.
+
+- **Other elementwise tensor ops.** The runtime supports `exp`, `log`, `sqrt`, `tanh`, `sigmoid`, `abs`, `sin`, `cos`. No IR opcodes for these yet. Mechanical to add (same pattern as spec 005's `TENSOR_NEG`/`TENSOR_DIV`).
+
+- **Tensor reductions.** `sum`, `mean`, `max`, `argmax` in the runtime. New op family with different shape semantics (output rank = input rank - 1). Needs its own spec.
+
+- **Tensor indexing and gather/scatter from source.** The runtime ops exist (spec 004 of the runtime). No IR opcode, no source syntax. Significant new spec.
+
+- **Tensor-scalar broadcast at the language level.** The runtime supports `b.numel() == 1` broadcast, but the compiler doesn't construct a rank-0 tensor from a scalar literal. So `a + 2.0` (tensor + scalar) fails. Either construct a `tensor([2.0])` automatically in lowering, or add a dedicated `TENSOR_SCALAR_*` family.
+
+- **Sema type-checking of tensor ops.** Shape mismatches surface only at runtime via `Status`. A future spec should make sema reject `tensor([1,2]) + tensor([1,2,3])` at compile time when shapes are statically known.
+
+- **`Generator` (RNG) integration.** The runtime exposes `Generator` (spec 005 of the runtime). No compiler-side wiring. Needed for dropout, init, sampling.
+
+## Build / tooling
+
+- **Optional `gtest` upgrade.** Test files use a custom `TEST()` macro and `assert()`. Workable but unfriendly when a test fails (no diff display, no per-assertion location). When the test count crosses ~50, consider migrating to gtest.
+
+- **CI for the compiler repo.** The runtime has GitHub Actions (runtime spec 007). The compiler doesn't yet. Adding it is half a day of work and prevents the freeze-equivalent from rotting (the compiler isn't frozen, but regressions still happen).
