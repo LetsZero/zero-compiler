@@ -245,57 +245,60 @@ void Lowering::lower_if(IRBuilder& builder, ast::IfStmt& if_stmt) {
     builder.set_current_span(if_stmt.span);
     Value cond = if_stmt.condition ? lower_expr(builder, *if_stmt.condition) : Value{};
 
-    BasicBlock& then_bb = builder.create_block("if.then");
-    BasicBlock& merge_bb = builder.create_block("if.end");
+    // Spec 009: hold block ids, not BasicBlock& — create_block() may
+    // reallocate fn.blocks, which would dangle any held reference.
+    uint32_t then_id  = builder.create_block("if.then");
+    uint32_t merge_id = builder.create_block("if.end");
 
     builder.set_current_span(if_stmt.span);
     if (if_stmt.else_branch.empty()) {
-        builder.cond_br(cond, then_bb, merge_bb);
+        builder.cond_br(cond, then_id, merge_id);
     } else {
-        BasicBlock& else_bb = builder.create_block("if.else");
-        builder.cond_br(cond, then_bb, else_bb);
+        uint32_t else_id = builder.create_block("if.else");
+        builder.cond_br(cond, then_id, else_id);
 
-        builder.set_insert_point(else_bb);
+        builder.set_insert_point(else_id);
         for (auto& stmt : if_stmt.else_branch) {
             lower_stmt(builder, *stmt);
         }
         builder.set_current_span(if_stmt.span);
-        builder.br(merge_bb);
+        builder.br(merge_id);
     }
 
-    builder.set_insert_point(then_bb);
+    builder.set_insert_point(then_id);
     for (auto& stmt : if_stmt.then_branch) {
         lower_stmt(builder, *stmt);
     }
     builder.set_current_span(if_stmt.span);
-    builder.br(merge_bb);
+    builder.br(merge_id);
 
-    builder.set_insert_point(merge_bb);
+    builder.set_insert_point(merge_id);
 }
 
 void Lowering::lower_while(IRBuilder& builder, ast::WhileStmt& while_stmt) {
     // Spec 002: same approach as lower_if — synthesized control-flow ops
     // belong to the while-statement.
-    BasicBlock& cond_bb = builder.create_block("while.cond");
-    BasicBlock& body_bb = builder.create_block("while.body");
-    BasicBlock& end_bb = builder.create_block("while.end");
+    // Spec 009: hold block ids, not BasicBlock&.
+    uint32_t cond_id = builder.create_block("while.cond");
+    uint32_t body_id = builder.create_block("while.body");
+    uint32_t end_id  = builder.create_block("while.end");
 
     builder.set_current_span(while_stmt.span);
-    builder.br(cond_bb);
+    builder.br(cond_id);
 
-    builder.set_insert_point(cond_bb);
+    builder.set_insert_point(cond_id);
     Value cond = while_stmt.condition ? lower_expr(builder, *while_stmt.condition) : Value{};
     builder.set_current_span(while_stmt.span);
-    builder.cond_br(cond, body_bb, end_bb);
+    builder.cond_br(cond, body_id, end_id);
 
-    builder.set_insert_point(body_bb);
+    builder.set_insert_point(body_id);
     for (auto& stmt : while_stmt.body) {
         lower_stmt(builder, *stmt);
     }
     builder.set_current_span(while_stmt.span);
-    builder.br(cond_bb);
+    builder.br(cond_id);
 
-    builder.set_insert_point(end_bb);
+    builder.set_insert_point(end_id);
 }
 
 } // namespace ir

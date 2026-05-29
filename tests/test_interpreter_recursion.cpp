@@ -137,13 +137,12 @@ TEST(single_user_function_still_works) {
 // at every nested call.
 // ─────────────────────────────────────────────────────────────────────
 
-// Note: a recursive-Fibonacci test (`fn fib(n: int) -> int { if (n < 2)
-// return n; return fib(n-1) + fib(n-2); }`) was originally planned for
-// this spec but surfaced a *separate* bug in `IRBuilder` — `create_block`
-// invalidates the builder's `current_block_` pointer and any held
-// `BasicBlock&` references when `fn.blocks` reallocates. That bug
-// predates spec 008 and is tracked in `docs/DEFERRED.md`. The Fibonacci
-// test will move to whichever spec fixes the IRBuilder issue.
+// Note: a recursive-Fibonacci test was originally planned for this spec
+// but surfaced a *separate* bug in `IRBuilder` — `create_block`
+// invalidated the builder's block pointer and any held `BasicBlock&`
+// references when `fn.blocks` reallocated, miscompiling every if/while.
+// That bug was fixed in spec 009; the Fibonacci test now lives in
+// tests/test_control_flow.cpp.
 
 int main() {
     std::cout << "=== Spec 008 — interpreter frame-index refactor ===\n";

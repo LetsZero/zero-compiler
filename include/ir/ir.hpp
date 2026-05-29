@@ -14,6 +14,7 @@
 #include <vector>
 #include <memory>
 #include <cstdint>
+#include <cassert>
 
 namespace zero {
 namespace ir {
@@ -213,10 +214,19 @@ struct Function {
     
     /**
      * Create a new basic block.
+     *
+     * INVARIANT (load-bearing): a block's `id` always equals its index in
+     * `blocks`. This holds because `next_block_id` and `blocks` advance in
+     * lockstep from 0 and nothing ever removes a block. Both IRBuilder
+     * (spec 009) and the interpreter (`fn.blocks[instr.target_block]`)
+     * rely on it. A future block-removal pass must preserve it.
      */
     BasicBlock& new_block(const std::string& label = "") {
         BasicBlock bb;
         bb.id = next_block_id++;
+        // id == index invariant: the block we are about to push lands at
+        // index `blocks.size()`, which must equal its id.
+        assert(bb.id == blocks.size() && "block id must equal its index");
         bb.label = label.empty() ? ("bb" + std::to_string(bb.id)) : label;
         blocks.push_back(std::move(bb));
         return blocks.back();

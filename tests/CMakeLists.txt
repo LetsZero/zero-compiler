@@ -191,6 +191,15 @@ set_target_properties(test_interpreter_recursion PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Control-flow lowering (spec 009 — IRBuilder block-index fix).
+add_executable(test_control_flow
+    test_control_flow.cpp
+)
+target_link_libraries(test_control_flow PRIVATE zerobackend zeroparse zerosema)
+set_target_properties(test_control_flow PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -224,4 +233,5 @@ add_test(NAME ZeroRemainingTensorOpsTest COMMAND test_remaining_tensor_ops)
 add_test(NAME ZeroFunctionTensorIOTest COMMAND test_function_tensor_io)
 add_test(NAME ZeroParserRecoveryTest COMMAND test_parser_recovery)
 add_test(NAME ZeroInterpreterRecursionTest COMMAND test_interpreter_recursion)
+add_test(NAME ZeroControlFlowTest COMMAND test_control_flow)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)

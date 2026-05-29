@@ -1,8 +1,8 @@
 # Spec 009: IRBuilder block-index refactor (control-flow miscompile fix)
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 002 (spans), spec 006 (function I/O), spec 008 (sibling fix in the interpreter)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -155,3 +155,4 @@ New test file: `tests/test_control_flow.cpp`. End-to-end source → execute via 
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) address blocks by `uint32_t` id, not a new handle type — matches `instr.target_block` and the id==index invariant the interpreter already relies on; (b) the invariant is asserted in `new_block` under debug builds rather than enforced by a heavier structure; (c) `Function::new_block`/`entry` keep returning references (immediate-use only); (d) the recursive-Fibonacci test that surfaced the bug in spec 008 lands here as the headline regression test, plus a direct "branch blocks are non-empty" IR-level assertion.
+- *Implementation, verification* — `ctest` **19/19 passing**. The refactor compiled clean across all consumers on the first build (the only external block-API user, `test_ir.cpp`, uses `Function::new_block` for immediate access, which was left unchanged). New `ZeroControlFlowTest`: if-true executes (the previously-wrong case → 99), if-false falls through (→ 7), if/else both branches, while-body block non-empty + terminates, recursive `fib(8)` → 21, and an IR-level guard that `if.then`/`if.else` blocks are non-empty. The spec-008 recursion test's placeholder note was updated to point here. `docs/DEFERRED.md` marks the IRBuilder item resolved.

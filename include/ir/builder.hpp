@@ -19,17 +19,22 @@ namespace ir {
  */
 class IRBuilder {
 public:
-    IRBuilder(Function& fn) : fn_(fn), current_block_(&fn.entry()) {}
-    
+    IRBuilder(Function& fn) : fn_(fn), current_block_id_(fn.entry().id) {}
+
     // ─────────────────────────────────────────────────────────────────────
     // Block management
+    //
+    // Spec 009: blocks are addressed by id (== index into fn.blocks), never
+    // by pointer/reference. Holding a BasicBlock* or BasicBlock& across a
+    // create_block() call is a use-after-realloc bug — that is exactly what
+    // this refactor removes.
     // ─────────────────────────────────────────────────────────────────────
-    
-    void set_insert_point(BasicBlock& bb) {
-        current_block_ = &bb;
+
+    void set_insert_point(uint32_t block_id) {
+        current_block_id_ = block_id;
     }
 
-    BasicBlock& current_block() { return *current_block_; }
+    uint32_t current_block_id() const { return current_block_id_; }
 
     // ─────────────────────────────────────────────────────────────────────
     // Source span attribution (spec 002)
@@ -42,8 +47,8 @@ public:
     void set_current_span(source::Span s) noexcept { current_span_ = s; }
     source::Span current_span() const noexcept { return current_span_; }
     
-    BasicBlock& create_block(const std::string& label = "") {
-        return fn_.new_block(label);
+    uint32_t create_block(const std::string& label = "") {
+        return fn_.new_block(label).id;
     }
     
     // ─────────────────────────────────────────────────────────────────────
@@ -134,19 +139,19 @@ public:
         emit(instr);
     }
     
-    void br(BasicBlock& target) {
+    void br(uint32_t target_id) {
         Instruction instr;
         instr.op = OpCode::BR;
-        instr.target_block = target.id;
+        instr.target_block = target_id;
         emit(instr);
     }
-    
-    void cond_br(Value cond, BasicBlock& then_bb, BasicBlock& else_bb) {
+
+    void cond_br(Value cond, uint32_t then_id, uint32_t else_id) {
         Instruction instr;
         instr.op = OpCode::COND_BR;
         instr.operands = {cond};
-        instr.target_block = then_bb.id;
-        instr.else_block = else_bb.id;
+        instr.target_block = then_id;
+        instr.else_block = else_id;
         emit(instr);
     }
     
@@ -236,7 +241,7 @@ public:
 
 private:
     Function& fn_;
-    BasicBlock* current_block_;
+    uint32_t current_block_id_;
     source::Span current_span_ = source::Span::invalid();
 
     void emit(Instruction instr) {
@@ -244,7 +249,10 @@ private:
         // the current span. Lowering sets it; if no one set it, the span is
         // invalid (acceptable for synthesized ops like implicit RET).
         instr.span = current_span_;
-        current_block_->add(std::move(instr));
+        // Spec 009: re-derive the destination block from the stable id every
+        // call. Never cache a reference — create_block() may have reallocated
+        // fn_.blocks since the last emit.
+        fn_.blocks[current_block_id_].add(std::move(instr));
     }
     
     Value binary_op(OpCode op, Value lhs, Value rhs) {
