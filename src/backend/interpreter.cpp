@@ -67,11 +67,8 @@ static void throw_with_span(const char* op_name,
 RuntimeValue Interpreter::execute(Module& mod, const std::string& entry) {
     module_ = &mod;
     call_stack_.clear();
-    // Spec 006: reserve so nested calls cannot reallocate the call stack
-    // and invalidate references held inside the per-frame loop below.
-    // Diagnostic fix; the proper index-based rewrite of that loop is a
-    // separate cleanup (tracked in docs/DEFERRED.md).
-    call_stack_.reserve(1024);
+    // Spec 008: call_function now addresses its frame by stable index,
+    // so reallocation during nested calls is safe. No reserve needed.
     
     // Find entry function
     Function* entry_fn = mod.get_function(entry);
@@ -110,23 +107,26 @@ RuntimeValue Interpreter::call_function(const Function& fn,
         frame.locals[fn.params[i].id] = std::move(args[i]);
     }
     call_stack_.push_back(std::move(frame));
-    
-    // Execute blocks
+
+    // Spec 008: address this frame by stable index. References into
+    // call_stack_ are invalidated by any push_back that grows the
+    // vector — a nested call_function via exec_instruction can do
+    // exactly that. Indices are stable as long as we never pop below
+    // my_frame_idx, which is the existing interpreter invariant.
+    const size_t my_frame_idx = call_stack_.size() - 1;
+
     RuntimeValue result;
-    
-    while (!call_stack_.empty() && call_stack_.back().fn == &fn) {
-        auto& current = call_stack_.back();
-        
-        if (current.block_idx >= fn.blocks.size()) {
-            break;
-        }
-        
-        const BasicBlock& bb = fn.blocks[current.block_idx];
-        
-        while (current.instr_idx < bb.instrs.size()) {
-            const Instruction& instr = bb.instrs[current.instr_idx];
-            
-            // Check for return
+
+    while (call_stack_.size() > my_frame_idx
+           && call_stack_[my_frame_idx].fn == &fn) {
+        size_t block_idx = call_stack_[my_frame_idx].block_idx;
+        if (block_idx >= fn.blocks.size()) break;
+        const BasicBlock& bb = fn.blocks[block_idx];
+
+        while (call_stack_[my_frame_idx].instr_idx < bb.instrs.size()) {
+            const Instruction& instr =
+                bb.instrs[call_stack_[my_frame_idx].instr_idx];
+
             if (instr.op == OpCode::RET) {
                 if (!instr.operands.empty()) {
                     result = get_value(instr.operands[0]);
@@ -134,45 +134,44 @@ RuntimeValue Interpreter::call_function(const Function& fn,
                 call_stack_.pop_back();
                 return result;
             }
-            
-            // Check for branch
+
             if (instr.op == OpCode::BR) {
-                current.block_idx = instr.target_block;
-                current.instr_idx = 0;
+                call_stack_[my_frame_idx].block_idx = instr.target_block;
+                call_stack_[my_frame_idx].instr_idx = 0;
                 break;
             }
-            
+
             if (instr.op == OpCode::COND_BR) {
                 RuntimeValue cond = get_value(instr.operands[0]);
-                if (cond.to_int() != 0) {
-                    current.block_idx = instr.target_block;
-                } else {
-                    current.block_idx = instr.else_block;
-                }
-                current.instr_idx = 0;
+                call_stack_[my_frame_idx].block_idx =
+                    (cond.to_int() != 0) ? instr.target_block : instr.else_block;
+                call_stack_[my_frame_idx].instr_idx = 0;
                 break;
             }
-            
-            // Execute instruction
+
+            // exec_instruction may recursively call_function and reallocate
+            // call_stack_. Re-derive the frame address after the call before
+            // mutating instr_idx.
             result = exec_instruction(instr);
-            current.instr_idx++;
+            call_stack_[my_frame_idx].instr_idx++;
         }
-        
-        // If we finished the block without a branch, move to next
-        if (current.instr_idx >= bb.instrs.size() && 
-            current.block_idx < fn.blocks.size() - 1) {
-            current.block_idx++;
-            current.instr_idx = 0;
-        } else if (current.instr_idx >= bb.instrs.size()) {
+
+        // Fall-through to next block.
+        if (call_stack_[my_frame_idx].instr_idx >= bb.instrs.size()
+            && call_stack_[my_frame_idx].block_idx < fn.blocks.size() - 1) {
+            call_stack_[my_frame_idx].block_idx++;
+            call_stack_[my_frame_idx].instr_idx = 0;
+        } else if (call_stack_[my_frame_idx].instr_idx >= bb.instrs.size()) {
             break;
         }
     }
-    
+
     // Pop frame if still on stack
-    if (!call_stack_.empty() && call_stack_.back().fn == &fn) {
+    if (call_stack_.size() > my_frame_idx
+        && call_stack_[my_frame_idx].fn == &fn) {
         call_stack_.pop_back();
     }
-    
+
     return result;
 }
 
