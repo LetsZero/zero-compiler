@@ -570,58 +570,72 @@ std::unique_ptr<Expr> Parser::parse_primary() {
         return make_expr(std::move(group));
     }
 
-    // Tensor literal: `tensor ( [ num (, num)* ] )` (spec 004).
+    // Tensor literal (spec 004 = 1-D, spec 015 = 2-D):
+    //   1-D: tensor([ a, b, c ])
+    //   2-D: tensor([ [a,b], [c,d] ])
     if (match(TokenType::TENSOR)) {
         Span start = previous_.span;
         consume(TokenType::LPAREN, "Expected '(' after 'tensor'");
-        consume(TokenType::LBRACKET, "Expected '[' to start tensor element list");
+        consume(TokenType::LBRACKET, "Expected '[' to start tensor literal");
 
         TensorLiteral lit;
-        bool element_loop_failed = false;
-        if (!check(TokenType::RBRACKET)) {
-            for (;;) {
-                // Optional unary minus prefix on each element.
-                bool negate = match(TokenType::MINUS);
-                if (match(TokenType::INT_LIT)) {
-                    int64_t v = 0;
-                    auto [p, ec] = std::from_chars(
-                        previous_.text.data(),
-                        previous_.text.data() + previous_.text.size(),
-                        v);
-                    (void)p; (void)ec;
-                    double val = static_cast<double>(v);
-                    lit.values.push_back(negate ? -val : val);
-                } else if (match(TokenType::FLOAT_LIT)) {
-                    double val = std::stod(std::string(previous_.text));
-                    lit.values.push_back(negate ? -val : val);
-                } else {
-                    error("Expected numeric literal in tensor element list");
-                    element_loop_failed = true;
+        bool failed = false;
+
+        if (check(TokenType::LBRACKET)) {
+            // 2-D: a list of rows. Each row is itself a bracketed number list.
+            int64_t cols = -1;
+            int64_t rows = 0;
+            while (!check(TokenType::RBRACKET) && !current_.is_eof()) {
+                consume(TokenType::LBRACKET, "Expected '[' to start a tensor row");
+                if (check(TokenType::LBRACKET)) {
+                    error("only 1-D and 2-D tensor literals are supported");
+                    failed = true;
                     break;
                 }
+                size_t n = 0;
+                if (!parse_number_row(lit.values, n)) { failed = true; break; }
+                consume(TokenType::RBRACKET, "Expected ']' to end a tensor row");
+                if (cols < 0) {
+                    cols = static_cast<int64_t>(n);
+                } else if (static_cast<int64_t>(n) != cols) {
+                    error("ragged tensor literal: rows have differing lengths");
+                    failed = true;
+                    break;
+                }
+                ++rows;
                 if (!match(TokenType::COMMA)) break;
             }
+            lit.shape = { rows, cols < 0 ? 0 : cols };
+        } else {
+            // 1-D: a single number list.
+            size_t n = 0;
+            if (!parse_number_row(lit.values, n)) failed = true;
+            lit.shape = { static_cast<int64_t>(n) };
         }
 
-        // Spec 007: recovery — if the element loop bailed, advance the
-        // cursor past tokens until a known stopping point so the
-        // surrounding consume() calls and the enclosing parse loop can
-        // make progress. Without this, the cursor stays parked on the
-        // offending token and any higher-level loop spins forever.
-        if (element_loop_failed) {
+        // Recovery (spec 007, hardened in spec 015): on any malformed
+        // literal, skip to the enclosing statement boundary (';' / '}' / EOF)
+        // and return immediately, WITHOUT running the closing consume()s.
+        // This guarantees the cursor advances to a clean resync point no
+        // matter how the brackets are malformed (ragged, 3-D, stray tokens),
+        // so the enclosing statement-body loop always makes forward progress
+        // and cannot spin. An error has already been reported, so the
+        // (incomplete) literal node is never executed.
+        if (failed) {
             while (!current_.is_eof()
-                   && !check(TokenType::RBRACKET)
-                   && !check(TokenType::RPAREN)
-                   && !check(TokenType::SEMICOLON)) {
+                   && !check(TokenType::SEMICOLON)
+                   && !check(TokenType::RBRACE)) {
                 advance();
             }
+            lit.span = start.merge(previous_.span);
+            return make_expr(std::move(lit));
         }
 
-        consume(TokenType::RBRACKET, "Expected ']' to end tensor element list");
+        consume(TokenType::RBRACKET, "Expected ']' to end tensor literal");
         consume(TokenType::RPAREN, "Expected ')' to end tensor literal");
 
         if (lit.values.empty()) {
-            error("Tensor literal must have at least one element");
+            error("tensor literal must have at least one element");
         }
 
         lit.span = start.merge(previous_.span);
@@ -630,6 +644,33 @@ std::unique_ptr<Expr> Parser::parse_primary() {
 
     error("Expected expression");
     return nullptr;
+}
+
+bool Parser::parse_number_row(std::vector<double>& out, size_t& count) {
+    count = 0;
+    if (check(TokenType::RBRACKET)) return true;  // empty row
+    for (;;) {
+        bool negate = match(TokenType::MINUS);
+        if (match(TokenType::INT_LIT)) {
+            int64_t v = 0;
+            auto [p, ec] = std::from_chars(
+                previous_.text.data(),
+                previous_.text.data() + previous_.text.size(),
+                v);
+            (void)p; (void)ec;
+            double val = static_cast<double>(v);
+            out.push_back(negate ? -val : val);
+        } else if (match(TokenType::FLOAT_LIT)) {
+            double val = std::stod(std::string(previous_.text));
+            out.push_back(negate ? -val : val);
+        } else {
+            error("Expected numeric literal in tensor element list");
+            return false;
+        }
+        ++count;
+        if (!match(TokenType::COMMA)) break;
+    }
+    return true;
 }
 
 } // namespace parser

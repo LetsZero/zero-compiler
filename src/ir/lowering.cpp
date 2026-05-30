@@ -217,6 +217,11 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
                 if (e.callee == "mean")   return builder.tensor_mean(args[0]);
                 if (e.callee == "argmax") return builder.tensor_argmax(args[0]);
             }
+            // Spec 015: matmul on two tensor arguments.
+            if (e.callee == "matmul" && args.size() == 2
+                && args[0].type.is_tensor() && args[1].type.is_tensor()) {
+                return builder.tensor_matmul(args[0], args[1]);
+            }
             // Spec 006: use the declared return type of the user function
             // when known; fall back to void for builtins like print/capture.
             auto ret_it = fn_return_types_.find(e.callee);
@@ -229,14 +234,14 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
             return e.inner ? lower_expr(builder, *e.inner) : Value{};
         }
         else if constexpr (std::is_same_v<T, ast::TensorLiteral>) {
-            // Spec 004: lower to TENSOR_CONST_F32 with shape derived from
-            // the value list length. Integer elements were already widened
-            // to double at parse time; cast to float here.
-            std::vector<int64_t> shape = { static_cast<int64_t>(e.values.size()) };
+            // Spec 004/015: lower to TENSOR_CONST_F32. The parser has inferred
+            // the shape ({N} for 1-D, {rows, cols} for 2-D); values are
+            // flattened row-major. Integer elements were widened to double
+            // at parse time; cast to float here.
             std::vector<float> data;
             data.reserve(e.values.size());
             for (double v : e.values) data.push_back(static_cast<float>(v));
-            return builder.tensor_const_f32(std::move(shape), std::move(data));
+            return builder.tensor_const_f32(e.shape, std::move(data));
         }
         else {
             return Value{};

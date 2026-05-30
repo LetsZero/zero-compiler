@@ -94,6 +94,26 @@ TEST(e2e_mean_through_user_fn) {
     assert(near(static_cast<const float*>(captured.as_tensor()->data)[0], 2.0f));
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Spec 015: a linear-layer shape — matmul of a [1,2] input with a [2,3]
+// weight -> [1,3]. x = [1,2], W = [[1,2,3],[4,5,6]] ->
+// [1*1+2*4, 1*2+2*5, 1*3+2*6] = [9, 12, 15].
+// ─────────────────────────────────────────────────────────────────────
+
+TEST(e2e_linear_layer_matmul) {
+    run_src(
+        "fn linear(x: tensor, w: tensor) -> tensor { return matmul(x, w); }\n"
+        "fn main() {\n"
+        "  let x = tensor([[1.0, 2.0]]);\n"
+        "  let w = tensor([[1.0, 2.0, 3.0],[4.0, 5.0, 6.0]]);\n"
+        "  capture(linear(x, w));\n"
+        "}\n");
+    const auto& t = captured.as_tensor();
+    assert(t->ndim == 2 && t->shape[0] == 1 && t->shape[1] == 3);
+    const float* d = static_cast<const float*>(t->data);
+    assert(near(d[0], 9.0f) && near(d[1], 12.0f) && near(d[2], 15.0f));
+}
+
 int main() {
     std::cout << "=== Phase 0 — end-to-end integration ===\n";
     int rc = run_all_tests();

@@ -150,9 +150,10 @@ void Sema::register_builtins() {
     relu_sig.is_variadic = true;
     functions_["relu"] = relu_sig;
 
-    // sum/mean/argmax(t) - reductions, dispatched to TENSOR_SUM/MEAN/ARGMAX
-    // at lowering when the arg is a tensor (spec 014). Return a [1] tensor.
-    for (const char* name : {"sum", "mean", "argmax"}) {
+    // sum/mean/argmax(t) - reductions (spec 014). matmul(a, b) (spec 015).
+    // All dispatched to TENSOR_* at lowering when args are tensors; return
+    // a tensor.
+    for (const char* name : {"sum", "mean", "argmax", "matmul"}) {
         FnSignature sig;
         sig.name = name;
         sig.return_type = types::Type::make_tensor();

@@ -124,7 +124,7 @@ Each row is one spec. Sizes: S ≈ half-day mechanical, M ≈ 1–2 days with ne
 ## 6. Progress checklist
 
 - [x] **014** Reductions from source (`sum`/`mean`/`argmax`) — done, ctest 22/22
-- [ ] **015** N-D tensor literals + source `matmul`
+- [x] **015** N-D tensor literals + source `matmul` — done (1-D/2-D), ctest 23/23
 - [ ] **016** Remaining elementwise from source (`exp`/`log`/`sqrt`/`tanh`/`sigmoid`)
 - [ ] **017** Tensor–scalar broadcast
 - [ ] **018** Sema shape-checking (static, literal-derived)

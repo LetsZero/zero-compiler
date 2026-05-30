@@ -129,7 +129,8 @@ struct GroupExpr {
 // 1-D F32 tensor literal: `tensor([1.0, 2.0, 3.0])` (spec 004).
 // Integer elements are widened to float in lowering.
 struct TensorLiteral {
-    std::vector<double> values;
+    std::vector<double> values;       // flattened, row-major
+    std::vector<int64_t> shape;       // {N} for 1-D, {rows, cols} for 2-D (spec 015)
     source::Span span;
 };
 

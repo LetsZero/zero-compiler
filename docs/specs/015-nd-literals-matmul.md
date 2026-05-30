@@ -1,8 +1,8 @@
 # Spec 015: 2-D tensor literals + source-callable `matmul`
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 004 (1-D literals), spec 005 (matmul IR/interpreter path), spec 007 (parser recovery)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **Roadmap:** Phase 0, item 015.
@@ -147,3 +147,5 @@ All 22 pre-existing test binaries pass unchanged.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) scope to 1-D + 2-D only, rejecting 3-D+ explicitly — the capstone needs at most 2-D and a bounded parser is lower-risk than general N-D recursion; (b) `TensorLiteral` carries a flat `values` + a `shape` vector (mirrors `TENSOR_CONST_F32`'s `imm_floats`/`imm_shape`) rather than a nested structure; (c) factor `parse_number_row` so 1-D and per-row parsing share the optional-minus element loop and the spec-007 recovery discipline is preserved; (d) `matmul` reuses the existing `TENSOR_MATMUL` path — no new IR or interpreter code, just sema builtin + lowering dispatch.
+- *Implementation* — One bug the tests caught immediately: the `threed_rejected` case (`tensor([[[1]]])`) **hung** under ctest. Root cause: the previous recovery (advance to `]`/`)`/`;`, then run the closing `consume()`s) left the cursor mid-brackets on deeply-malformed input, so the enclosing function-body loop re-entered `parse_stmt` with no forward progress → infinite loop. This is the "general no-progress" gap spec 007 had explicitly deferred; the new 3-D path is a fresh way to reach it. **Fix:** on any malformed literal, skip straight to the statement boundary (`;` / `}` / EOF) and return immediately, never running the closing consumes. This guarantees a clean resync point regardless of how the brackets are malformed, so the body loop always advances. Verified it does not regress spec 007's `test_parser_recovery` (1-D bad-token + multi-function recovery still green).
+- *Implementation, verification* — `ctest` **23/23 passing** (new `ZeroNDLiteralsTest`; `test_phase0_e2e` extended with a `[1,2]·[2,3]→[1,3]` linear-layer case). 1-D literals unchanged; all 22 prior binaries green.

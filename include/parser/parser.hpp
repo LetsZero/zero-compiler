@@ -112,6 +112,11 @@ private:
     std::unique_ptr<ast::Expr> parse_unary();
     std::unique_ptr<ast::Expr> parse_call();
     std::unique_ptr<ast::Expr> parse_primary();
+
+    // Spec 015: parse a comma-separated list of numeric literals (each with
+    // an optional leading '-') appending to `out`. Sets `count` to the number
+    // parsed. Returns false on a non-numeric token (caller recovers).
+    bool parse_number_row(std::vector<double>& out, size_t& count);
 };
 
 } // namespace parser
