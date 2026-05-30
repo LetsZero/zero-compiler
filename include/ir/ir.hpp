@@ -76,7 +76,6 @@ enum class OpCode {
     STORE,          // *op0 = op1
     
     // Tensor operations (link to core-runtime)
-    TENSOR_ALLOC,   // result = allocate tensor
     TENSOR_ADD,     // result = tensor_add(op0, op1)   — wired in spec 003
     TENSOR_SUB,     // result = tensor_sub(op0, op1)
     TENSOR_MUL,     // result = tensor_mul(op0, op1)
@@ -117,7 +116,6 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::ALLOCA: return "alloca";
         case OpCode::LOAD: return "load";
         case OpCode::STORE: return "store";
-        case OpCode::TENSOR_ALLOC: return "tensor.alloc";
         case OpCode::TENSOR_ADD: return "tensor.add";
         case OpCode::TENSOR_SUB: return "tensor.sub";
         case OpCode::TENSOR_MUL: return "tensor.mul";

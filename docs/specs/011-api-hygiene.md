@@ -1,8 +1,8 @@
 # Spec 011: API hygiene — remove dead opcode, silence duplicate-link warning
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** none
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **ABI note:** internal compiler only; no language or runtime surface change.
@@ -66,3 +66,4 @@ A dedicated test file is intentionally **not** added; adding a test that asserts
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) grouped exactly two items, both zero-behaviour-change, into one spec (the themed-cleanup pattern); (b) excluded the namespace rename and downgraded it in `DEFERRED.md` rather than bundling a large risky change with two trivial ones; (c) no new test binary — grep + clean-build + existing suite is the correct verification for pure removals.
+- *Implementation, verification* — Clean-from-scratch build (`rm -rf build`) emits **0** `ignoring duplicate libraries` warnings (was one per affected target). `grep -rn TENSOR_ALLOC include src tests` returns nothing. `ctest` **20/20 passing**, all binaries unmodified. `OpCode` left un-renumbered (name-referenced only, ordinal irrelevant).

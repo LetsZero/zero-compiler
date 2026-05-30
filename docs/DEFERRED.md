@@ -19,11 +19,11 @@ This file is append-only. When an item is fixed, the entry stays (with a striket
 ## API hygiene
 
 - **`zero::ir::` namespace collision between the compiler and the runtime.** Both repos define `Function` and `BasicBlock` in `namespace zero::ir`. Spec 003 worked around it by switching the interpreter from `<zero/zero.hpp>` to narrow `<zero/core/*.hpp>` and `<zero/ops/*.hpp>` includes. The umbrella header is unsafe to include anywhere in the compiler tree.
-  - Suggested fix: rename the compiler's IR to `zero::compiler::ir`. Touches every file that says `namespace ir` or `zero::ir::` — significant but mechanical. Defer until a real use case wants the umbrella include.
+  - **Status: WON'T DO unless needed (downgraded by spec 011).** The rename to `zero::compiler::ir` touches most of the compiler tree, and its only payoff is enabling the umbrella include — which the narrow-include workaround already handles cleanly. Doing it now is churn without payoff. Revisit only if a concrete need for `<zero/zero.hpp>` in the compiler arises.
 
-- **`OpCode::TENSOR_ALLOC` is unused.** `TENSOR_CONST_F32` covers tensor construction; nothing emits or consumes `TENSOR_ALLOC`. Either delete or repurpose. Repurpose candidate: a no-data allocation (uninit output buffer) that the compiler can emit ahead of a `TENSOR_*` op so the buffer is explicit in IR instead of hidden inside the interpreter.
+- ~~**`OpCode::TENSOR_ALLOC` is unused.**~~ **Resolved by spec 011.** Removed from the enum, `opcode_name`, and the interpreter switch. It was never emitted by lowering, so no IR ever contained it.
 
-- **Duplicate-library link warning.** Several test targets show `ld: warning: ignoring duplicate libraries: '../lib/libzeroparse.a'` because they link both `zerosema` and `zeroparse` directly, and `zerosema` already pulls `zeroparse` transitively. Cosmetic; clean by removing the redundant direct link.
+- ~~**Duplicate-library link warning.**~~ **Resolved by spec 011.** The six test targets that linked `zerobackend zeroparse zerosema` now link `zerobackend zerosema` (zerosema `PUBLIC`-links zeroparse). A clean build emits zero `ignoring duplicate libraries` warnings.
 
 ## Compiler features deferred
 

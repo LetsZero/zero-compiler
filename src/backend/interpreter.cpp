@@ -453,12 +453,6 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             break;
         }
 
-        case OpCode::TENSOR_ALLOC:
-            // Stubbed — TENSOR_CONST_F32 covers literal construction; this
-            // opcode has no users today.
-            result = RuntimeValue(static_cast<void*>(nullptr));
-            break;
-            
         default:
             break;
     }

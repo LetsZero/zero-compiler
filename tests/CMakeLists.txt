@@ -150,7 +150,7 @@ set_target_properties(test_tensor_add_e2e PROPERTIES
 add_executable(test_source_tensor
     test_source_tensor.cpp
 )
-target_link_libraries(test_source_tensor PRIVATE zerobackend zeroparse zerosema)
+target_link_libraries(test_source_tensor PRIVATE zerobackend zerosema)
 set_target_properties(test_source_tensor PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
@@ -159,7 +159,7 @@ set_target_properties(test_source_tensor PROPERTIES
 add_executable(test_remaining_tensor_ops
     test_remaining_tensor_ops.cpp
 )
-target_link_libraries(test_remaining_tensor_ops PRIVATE zerobackend zeroparse zerosema)
+target_link_libraries(test_remaining_tensor_ops PRIVATE zerobackend zerosema)
 set_target_properties(test_remaining_tensor_ops PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
@@ -168,7 +168,7 @@ set_target_properties(test_remaining_tensor_ops PROPERTIES
 add_executable(test_function_tensor_io
     test_function_tensor_io.cpp
 )
-target_link_libraries(test_function_tensor_io PRIVATE zerobackend zeroparse zerosema)
+target_link_libraries(test_function_tensor_io PRIVATE zerobackend zerosema)
 set_target_properties(test_function_tensor_io PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
@@ -186,7 +186,7 @@ set_target_properties(test_parser_recovery PROPERTIES
 add_executable(test_interpreter_recursion
     test_interpreter_recursion.cpp
 )
-target_link_libraries(test_interpreter_recursion PRIVATE zerobackend zeroparse zerosema)
+target_link_libraries(test_interpreter_recursion PRIVATE zerobackend zerosema)
 set_target_properties(test_interpreter_recursion PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
@@ -195,7 +195,7 @@ set_target_properties(test_interpreter_recursion PROPERTIES
 add_executable(test_control_flow
     test_control_flow.cpp
 )
-target_link_libraries(test_control_flow PRIVATE zerobackend zeroparse zerosema)
+target_link_libraries(test_control_flow PRIVATE zerobackend zerosema)
 set_target_properties(test_control_flow PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
@@ -204,7 +204,7 @@ set_target_properties(test_control_flow PROPERTIES
 add_executable(test_runtime_diagnostics
     test_runtime_diagnostics.cpp
 )
-target_link_libraries(test_runtime_diagnostics PRIVATE zerobackend zeroparse zerosema)
+target_link_libraries(test_runtime_diagnostics PRIVATE zerobackend zerosema)
 set_target_properties(test_runtime_diagnostics PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
