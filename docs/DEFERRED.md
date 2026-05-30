@@ -14,7 +14,7 @@ This file is append-only. When an item is fixed, the entry stays (with a striket
 
 - ~~**`IRBuilder` reference invalidation under `create_block`.**~~ **Resolved by spec 009.** `IRBuilder` now addresses the current block by `uint32_t` id (== index into `fn.blocks`), and `lower_if`/`lower_while` hold ids instead of `BasicBlock&`. `emit()` re-derives the destination block from the id every call. The id==index invariant is documented on `Function` and asserted in `new_block`. The recursive-Fibonacci case that exposed it now returns the correct value, and an IR-level test guards that branch blocks are non-empty.
 
-- **`Reporter`-based diagnostics for runtime errors.** The interpreter throws `std::runtime_error` for tensor op failures (spec 003 amendment log). A future spec should route through the existing `diagnostics::Reporter` so errors render with source-line context, not just a one-line string. The throw path is clean and structured; the migration is straightforward.
+- ~~**`Reporter`-based diagnostics for runtime errors.**~~ **Resolved by spec 010.** The interpreter now takes an optional `SourceManager*`; on a tensor-op failure with a valid span it emits a Frame & Focus `RuntimeError` diagnostic (source line, focus reason, help) before throwing. The throw is unchanged (additive integration). The driver wires the SourceManager so `zeroc` gets rich runtime errors. (Note: the interpreter is still throw-based for control flow — migrating `execute()` to return a `Status`/`Result` remains a separate, larger item if ever wanted.)
 
 ## API hygiene
 

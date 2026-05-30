@@ -10,6 +10,8 @@
 
 #include "ir/ir.hpp"
 #include "types/types.hpp"
+#include "source/source.hpp"            // spec 010: span -> file:line:col
+#include "diagnostics/reporter.hpp"     // spec 010: rich runtime diagnostics
 
 // Spec 003: include only what we need from the runtime. The umbrella
 // <zero/zero.hpp> would pull in zero::ir::Function / zero::ir::BasicBlock
@@ -101,6 +103,13 @@ public:
     RuntimeValue execute(ir::Module& mod, const std::string& entry = "main");
     
     /**
+     * Spec 010: provide a SourceManager so runtime errors can be rendered
+     * as "Frame & Focus" diagnostics with source-line context. Optional —
+     * when unset, runtime errors only throw (no rich rendering).
+     */
+    void set_source_manager(const source::SourceManager* sm) { sm_ = sm; }
+
+    /**
      * Register an external function (for FFI).
      */
     void register_external(const std::string& name, ExternalFn fn) {
@@ -115,7 +124,11 @@ public:
 private:
     // Module being executed
     ir::Module* module_ = nullptr;
-    
+
+    // Optional source manager for rich runtime diagnostics (spec 010).
+    // Null by default — runtime errors then only throw.
+    const source::SourceManager* sm_ = nullptr;
+
     // External functions
     std::unordered_map<std::string, ExternalFn> externals_;
     

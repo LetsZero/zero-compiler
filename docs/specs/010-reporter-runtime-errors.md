@@ -1,8 +1,8 @@
 # Spec 010: Reporter integration for runtime errors
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 002 (IR spans), spec 003 (tensor-op throw path)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -106,3 +106,5 @@ New test file: `tests/test_runtime_diagnostics.cpp`.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) Reporter call is *additive* to the throw, not a replacement — preserves control flow and every existing test that asserts on the thrown message; (b) the SourceManager is an opt-in nullable pointer, so the rich path only activates for real compilation (the driver wires it; unit tests opt in deliberately); (c) one generic `help` string for v1, per-`StatusCode` help deferred; (d) the test captures `std::cerr` via `rdbuf` swap to assert the Reporter block is emitted — a real behavioural assertion, not just "doesn't crash".
+- *Implementation* — One test-only fix: `Reporter::getErrorTypeName(RUNTIME)` renders `"RuntimeError"`, not `"RUNTIME"`; the §4.1 assertion was corrected to match the actual Reporter output (the spec text said "RUNTIME" loosely). Verified end-to-end with `zeroc` on a shape-mismatch program: it renders the full Frame & Focus block (`[ ERROR ] RuntimeError in '<file>'`, `--> Line 4, Col 17`, source line, `[ Focus ]: tensor_sub: b must match a or be a scalar`, `[ Help ]: ...`) and exits 1.
+- *Implementation, verification* — `ctest` **20/20 passing**. New `ZeroRuntimeDiagnosticsTest`: Reporter fires with a SourceManager (stderr captured, contains `[ ERROR ]` / `RuntimeError` / filename, throw preserved), throw-only without a SourceManager (no `[ ERROR ]` block), and happy path emits nothing and does not throw. All 19 prior binaries unchanged.

@@ -44,9 +44,28 @@ static TensorPtr alloc_output_like(const int64_t* shape, int8_t ndim) {
 
 // Format-and-throw helper. Centralises the message format that spec 003
 // established (op name + code + msg + @span fragment).
+//
+// Spec 010: when a SourceManager is provided and the span is valid, emit a
+// "Frame & Focus" RUNTIME diagnostic before throwing. The throw itself is
+// unchanged — the Reporter call is additive (rich rendering), the throw is
+// still the control-flow mechanism.
 static void throw_with_span(const char* op_name,
                             const zero::Status& s,
-                            const source::Span& span) {
+                            const source::Span& span,
+                            const source::SourceManager* sm) {
+    if (sm != nullptr && span.valid()) {
+        auto [line, col] = sm->get_line_col(span);
+        diagnostics::SourceLocation loc(
+            sm->get_path(span.source_id),
+            static_cast<int>(line),
+            static_cast<int>(col));
+        std::string rich = std::string(op_name) + ": "
+            + (s.msg ? s.msg : "runtime error");
+        diagnostics::Reporter::reportError(
+            diagnostics::ErrorType::RUNTIME, loc, rich,
+            /*help=*/"check tensor shapes and dtypes at this call site");
+    }
+
     std::ostringstream msg;
     msg << op_name << " failed: code=" << static_cast<int>(s.code);
     if (s.msg) msg << " (" << s.msg << ")";
@@ -380,7 +399,7 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
                 case OpCode::TENSOR_DIV: s = zero::ops::div(*a, *b, *out); op_name = "tensor_div"; break;
                 default: break;  // unreachable
             }
-            if (s.is_error()) throw_with_span(op_name, s, instr.span);
+            if (s.is_error()) throw_with_span(op_name, s, instr.span, sm_);
             result = RuntimeValue(std::move(out));
             break;
         }
@@ -405,7 +424,7 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
                 case OpCode::TENSOR_RELU: s = zero::ops::relu(*x, *out); op_name = "tensor_relu"; break;
                 default: break;  // unreachable
             }
-            if (s.is_error()) throw_with_span(op_name, s, instr.span);
+            if (s.is_error()) throw_with_span(op_name, s, instr.span, sm_);
             result = RuntimeValue(std::move(out));
             break;
         }
@@ -429,7 +448,7 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             TensorPtr out = alloc_output_like(shape_arr, 2);
 
             zero::Status s = zero::ops::matmul(*a, *b, *out);
-            if (s.is_error()) throw_with_span("tensor_matmul", s, instr.span);
+            if (s.is_error()) throw_with_span("tensor_matmul", s, instr.span, sm_);
             result = RuntimeValue(std::move(out));
             break;
         }

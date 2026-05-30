@@ -147,6 +147,10 @@ int compile_and_run(const std::string& filename, bool dump_ir) {
         return backend::RuntimeValue{};
     });
     
+    // Spec 010: give the interpreter the source manager so runtime errors
+    // render as Frame & Focus diagnostics with source-line context.
+    interp.set_source_manager(&sm);
+
     try {
         interp.execute(mod, "main");
         return interp.exit_code();
