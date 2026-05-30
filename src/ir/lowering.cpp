@@ -211,6 +211,12 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
             if (e.callee == "relu" && args.size() == 1 && args[0].type.is_tensor()) {
                 return builder.tensor_relu(args[0]);
             }
+            // Spec 014: reductions on a single tensor argument.
+            if (args.size() == 1 && args[0].type.is_tensor()) {
+                if (e.callee == "sum")    return builder.tensor_sum(args[0]);
+                if (e.callee == "mean")   return builder.tensor_mean(args[0]);
+                if (e.callee == "argmax") return builder.tensor_argmax(args[0]);
+            }
             // Spec 006: use the declared return type of the user function
             // when known; fall back to void for builtins like print/capture.
             auto ret_it = fn_return_types_.find(e.callee);

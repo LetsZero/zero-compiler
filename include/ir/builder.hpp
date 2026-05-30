@@ -239,6 +239,11 @@ public:
     Value tensor_relu(Value x)             { return tensor_unary(OpCode::TENSOR_RELU, x); }
     Value tensor_matmul(Value lhs, Value rhs) { return tensor_binary(OpCode::TENSOR_MATMUL, lhs, rhs); }
 
+    // Spec 014: full reductions (unary, [1] F32 result).
+    Value tensor_sum(Value x)    { return tensor_unary(OpCode::TENSOR_SUM, x); }
+    Value tensor_mean(Value x)   { return tensor_unary(OpCode::TENSOR_MEAN, x); }
+    Value tensor_argmax(Value x) { return tensor_unary(OpCode::TENSOR_ARGMAX, x); }
+
 private:
     Function& fn_;
     uint32_t current_block_id_;

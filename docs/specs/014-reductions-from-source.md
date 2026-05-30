@@ -1,8 +1,8 @@
 # Spec 014: Reductions from source (`sum` / `mean` / `argmax`)
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 005 (tensor-op dispatch pattern), spec 010 (diagnostics)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **Roadmap:** Phase 0, item 014.
@@ -117,3 +117,4 @@ All 20 pre-existing test binaries must pass unchanged.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) full-reduction → `[1]` F32 tensor (not last-axis, not rank-0) — simplest semantics, exactly what softmax needs, and composes with the coming broadcast spec; (b) three distinct opcodes rather than one `TENSOR_REDUCE`+mode — matches the established one-opcode-per-op pattern (spec 005) and keeps the interpreter switch greppable; (c) `argmax` returns a float index in an F32 tensor to stay within the single value model, deferring typed indices to the multi-dtype era; (d) seed `test_phase0_e2e.cpp` here as the integration net the roadmap calls for.
+- *Implementation, verification* — `ctest` **22/22 passing** (two new binaries: `ZeroReductionsTest`, `ZeroPhase0E2ETest`). `sum`/`mean` reuse `reduce_all`; `argmax` is a direct interpreter scan; all three reuse the existing `tensor_unary` builder helper and `alloc_output_like`. The lowering dispatch and sema builtins slotted in beside `relu` exactly as the pattern predicted — no surprises. The e2e seed verifies reductions through user functions end-to-end. All 20 prior binaries unchanged.

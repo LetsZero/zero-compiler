@@ -90,6 +90,11 @@ enum class OpCode {
     // Spec 005: more tensor ops wired to the runtime.
     TENSOR_NEG,     // result = -op0
     TENSOR_DIV,     // result = op0 / op1 (elementwise)
+
+    // Spec 014: full reductions over all elements -> [1] F32 tensor.
+    TENSOR_SUM,     // result = sum(op0)
+    TENSOR_MEAN,    // result = mean(op0)
+    TENSOR_ARGMAX,  // result = flat index of max(op0), as float
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -124,6 +129,9 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_CONST_F32: return "tensor.const.f32";
         case OpCode::TENSOR_NEG: return "tensor.neg";
         case OpCode::TENSOR_DIV: return "tensor.div";
+        case OpCode::TENSOR_SUM: return "tensor.sum";
+        case OpCode::TENSOR_MEAN: return "tensor.mean";
+        case OpCode::TENSOR_ARGMAX: return "tensor.argmax";
         default: return "unknown";
     }
 }

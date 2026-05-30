@@ -10,6 +10,7 @@
 // (see interpreter.hpp).
 #include <zero/ops/elementwise.hpp>
 #include <zero/ops/matmul.hpp>
+#include <zero/ops/reduce.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -449,6 +450,40 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
 
             zero::Status s = zero::ops::matmul(*a, *b, *out);
             if (s.is_error()) throw_with_span("tensor_matmul", s, instr.span, sm_);
+            result = RuntimeValue(std::move(out));
+            break;
+        }
+
+        // ─── Full reductions (spec 014). Output is a [1] F32 tensor.
+        case OpCode::TENSOR_SUM:
+        case OpCode::TENSOR_MEAN: {
+            RuntimeValue x = get_value(instr.operands[0]);
+            if (!x.is_tensor()) throw std::runtime_error("reduction: non-tensor operand");
+            const TensorPtr& t = x.as_tensor();
+            zero::ops::ReduceOp op = (instr.op == OpCode::TENSOR_SUM)
+                ? zero::ops::ReduceOp::SUM
+                : zero::ops::ReduceOp::MEAN;
+            float v = zero::ops::reduce_all(*t, op);
+            int64_t one[1] = {1};
+            TensorPtr out = alloc_output_like(one, 1);
+            static_cast<float*>(out->data)[0] = v;
+            result = RuntimeValue(std::move(out));
+            break;
+        }
+
+        case OpCode::TENSOR_ARGMAX: {
+            RuntimeValue x = get_value(instr.operands[0]);
+            if (!x.is_tensor()) throw std::runtime_error("argmax: non-tensor operand");
+            const TensorPtr& t = x.as_tensor();
+            const float* d = static_cast<const float*>(t->data);
+            int64_t n = t->numel();
+            int64_t best = 0;
+            for (int64_t i = 1; i < n; ++i) {
+                if (d[i] > d[best]) best = i;
+            }
+            int64_t one[1] = {1};
+            TensorPtr out = alloc_output_like(one, 1);
+            static_cast<float*>(out->data)[0] = static_cast<float>(best);
             result = RuntimeValue(std::move(out));
             break;
         }

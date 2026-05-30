@@ -209,6 +209,24 @@ set_target_properties(test_runtime_diagnostics PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Reductions from source (spec 014).
+add_executable(test_reductions
+    test_reductions.cpp
+)
+target_link_libraries(test_reductions PRIVATE zerobackend zerosema)
+set_target_properties(test_reductions PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+# Phase-0 end-to-end integration net (seeded spec 014, grows to 019).
+add_executable(test_phase0_e2e
+    test_phase0_e2e.cpp
+)
+target_link_libraries(test_phase0_e2e PRIVATE zerobackend zerosema)
+set_target_properties(test_phase0_e2e PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -244,4 +262,6 @@ add_test(NAME ZeroParserRecoveryTest COMMAND test_parser_recovery)
 add_test(NAME ZeroInterpreterRecursionTest COMMAND test_interpreter_recursion)
 add_test(NAME ZeroControlFlowTest COMMAND test_control_flow)
 add_test(NAME ZeroRuntimeDiagnosticsTest COMMAND test_runtime_diagnostics)
+add_test(NAME ZeroReductionsTest COMMAND test_reductions)
+add_test(NAME ZeroPhase0E2ETest COMMAND test_phase0_e2e)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)
