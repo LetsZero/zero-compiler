@@ -129,7 +129,13 @@ Each row is one spec. Sizes: S ≈ half-day mechanical, M ≈ 1–2 days with ne
 - [x] **017** Tensor–scalar broadcast — done, ctest 25/25 (softmax's `e/sum(e)` already worked via tensor÷tensor[1]; 017 added `x * 2.0`-style scalar broadcast)
 - [x] **018** Sema shape-checking (static, literal-derived) — done, ctest 26/26
 - [x] **018b** Parser robustness: newlines in `(...)`/`[...]` + no-progress guard — done, ctest 27/27 (parser hang-proof; multi-line code parses)
-- [ ] **019** Stdlib `softmax` + MLP forward-pass capstone  → **Phase 0 COMPLETE**
+- [x] **019** Stdlib `softmax` + MLP forward-pass capstone — done, ctest 27/27  → **✅ PHASE 0 COMPLETE**
+
+> **Phase 0 is complete.** A 2-layer MLP with a softmax output, written in `.zero`
+> source, runs end-to-end through the interpreter and produces `{0.410960, 0.589040}`
+> (matches an independent C++ oracle; sums to 1.0). `softmax` is composed in Zero from
+> `exp`/`sum`/`÷` — no runtime softmax primitive. CI green on Linux + macOS, 27/27.
+> Next: Phase 1 (autograd, then LLVM codegen) — to be planned in its own roadmap.
 
 ---
 

@@ -1,8 +1,8 @@
 # Spec 019: Stdlib `softmax` + MLP forward-pass capstone (Phase 0 complete)
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** specs 014–018b (every Phase-0 primitive)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **Roadmap:** Phase 0, item 019 — **the milestone that marks Phase 0 complete.**
@@ -108,3 +108,4 @@ All 27 pre-existing test binaries pass unchanged.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) the capstone is added to the existing `test_phase0_e2e.cpp` net rather than a new binary — it is the culmination that net was built for; (b) the numeric check uses an **independent in-test C++ oracle** (recomputing relu/matmul/softmax) rather than hard-coded constants, so the assertion can't drift from a typo; (c) `softmax` is defined inline in the program (no import system yet) with a canonical `stdlib/nn.zero` artifact for documentation; (d) full-reduction softmax over the single `[1,2]` row is correct — batched per-row softmax is explicitly deferred (needs last-axis reductions).
+- *Implementation, verification — PHASE 0 COMPLETE.* `e2e_mlp_capstone` passes: the MLP forward pass produces `{0.410960, 0.589040}` (sums to 1.0), matching the in-test C++ oracle to within 1e-5; parse and sema are clean on the multi-line source. **No new compiler code was needed** — pure composition of specs 014–018b, exactly as predicted. `softmax` is Zero source (no `TENSOR_SOFTMAX` opcode exists). `stdlib/nn.zero` artifact added. `ctest` **27/27**. This is the falsifiable Phase-0 milestone from `ROADMAP §2`; Phase 0 is done.

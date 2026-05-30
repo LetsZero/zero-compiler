@@ -1,0 +1,22 @@
+// nn.zero — neural-network building blocks, written in Zero.
+//
+// This file is the canonical home for ML semantics that compose from the
+// frozen Core Runtime primitives. It demonstrates the "erosion" thesis:
+// softmax (and friends) are NOT runtime primitives — they are ordinary
+// Zero functions built from exp / sum / elementwise division.
+//
+// NOTE (Phase 0): the compiler does not yet have a module/import system,
+// so programs currently copy these definitions inline. This file is a
+// documentation artifact and the reference implementation; wiring `use`
+// to import it is post-Phase-0 work.
+
+// Softmax over all elements of `x`: exp(x) / sum(exp(x)).
+// For a single row this yields a probability distribution (sums to 1).
+fn softmax(x: tensor) -> tensor {
+    return exp(x) / sum(exp(x));
+}
+
+// A single linear layer followed by ReLU: relu(x @ w).
+fn linear_relu(x: tensor, w: tensor) -> tensor {
+    return relu(matmul(x, w));
+}

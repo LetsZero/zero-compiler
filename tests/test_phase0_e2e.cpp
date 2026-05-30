@@ -170,6 +170,68 @@ TEST(e2e_no_false_positive_shape_error) {
     assert(!sema.had_error());   // no false-positive shape error
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Spec 019: THE Phase-0 capstone. A 2-layer MLP with a softmax output,
+// written in .zero source, run end-to-end, checked against an independent
+// in-test C++ oracle. softmax is composed in Zero (exp/sum/÷) — there is
+// no runtime/IR softmax primitive. When this passes, Phase 0 is complete.
+// ─────────────────────────────────────────────────────────────────────
+
+TEST(e2e_mlp_capstone) {
+    const char* src =
+        "fn softmax(x: tensor) -> tensor { return exp(x) / sum(exp(x)); }\n"
+        "fn mlp(x: tensor, w1: tensor, w2: tensor) -> tensor {\n"
+        "  let h = relu(matmul(x, w1));\n"
+        "  let o = matmul(h, w2);\n"
+        "  return softmax(o);\n"
+        "}\n"
+        "fn main() {\n"
+        "  let x  = tensor([[1.0, 2.0]]);\n"
+        "  let w1 = tensor([[0.1, 0.2, 0.3],\n"
+        "                   [0.4, 0.5, 0.6]]);\n"
+        "  let w2 = tensor([[0.1, 0.2],\n"
+        "                   [0.3, 0.4],\n"
+        "                   [0.5, 0.6]]);\n"
+        "  capture(mlp(x, w1, w2));\n"
+        "}\n";
+
+    // Parse + sema must be clean (multi-line source; no false shape errors).
+    SourceManager sm;
+    SourceID sid = sm.load_from_string("mlp.zero", src);
+    Parser parser(sm, sid);
+    auto prog = parser.parse();
+    assert(!parser.had_error());
+    zero::sema::Sema sema;
+    sema.analyze(prog);
+    assert(!sema.had_error());
+
+    // Execute.
+    Lowering lowering;
+    auto mod = lowering.lower(prog);
+    Interpreter interp;
+    install_capture(interp);
+    interp.set_source_manager(&sm);
+    captured = RuntimeValue();
+    interp.execute(mod);
+
+    // Result is a [1, 2] F32 probability distribution.
+    assert(captured.is_tensor());
+    const auto& t = captured.as_tensor();
+    assert(t->ndim == 2 && t->shape[0] == 1 && t->shape[1] == 2);
+    const float* d = static_cast<const float*>(t->data);
+
+    // Independent oracle: recompute relu/matmul/softmax in plain C++.
+    float h0 = 0.9f, h1 = 1.2f, h2 = 1.5f;           // relu(x · w1), all > 0
+    float o0 = h0*0.1f + h1*0.3f + h2*0.5f;          // 1.20
+    float o1 = h0*0.2f + h1*0.4f + h2*0.6f;          // 1.56
+    float e0 = std::exp(o0), e1 = std::exp(o1), s = e0 + e1;
+    float ref0 = e0 / s, ref1 = e1 / s;              // ≈ {0.41096, 0.58904}
+
+    assert(near(d[0], ref0));
+    assert(near(d[1], ref1));
+    assert(near(d[0] + d[1], 1.0f));   // it's a distribution
+}
+
 int main() {
     std::cout << "=== Phase 0 — end-to-end integration ===\n";
     int rc = run_all_tests();
