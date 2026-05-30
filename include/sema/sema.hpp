@@ -30,7 +30,8 @@ enum class ErrorKind {
     WRONG_ARG_COUNT,
     TYPE_MISMATCH,
     RETURN_TYPE_MISMATCH,
-    DUPLICATE_DEFINITION
+    DUPLICATE_DEFINITION,
+    SHAPE_MISMATCH          // spec 018: static, literal-derived shape check
 };
 
 struct SemanticError {
@@ -88,6 +89,7 @@ public:
         errors_.clear();
         scopes_.clear();
         functions_.clear();
+        var_shapes_.clear();
     }
 
 private:
@@ -99,6 +101,12 @@ private:
     
     // Current function return type (for checking return statements)
     types::Type current_return_type_;
+
+    // Spec 018: statically-known tensor shapes by variable name, per
+    // function (cleared in check_fn). Literal-derived only; absence means
+    // "unknown shape, don't check".
+    using Shape = std::vector<int64_t>;
+    std::unordered_map<std::string, Shape> var_shapes_;
     
     // Collected errors
     std::vector<SemanticError> errors_;
@@ -121,6 +129,11 @@ private:
     void check_fn(ast::FnDecl& fn);
     void check_stmt(ast::Stmt& stmt);
     types::Type check_expr(ast::Expr& expr);
+
+    // Spec 018: infer a tensor expression's static shape (literal-derived),
+    // emitting SHAPE_MISMATCH on incompatible elementwise/matmul operands.
+    // Returns nullopt when the shape is unknown or the expression is scalar.
+    std::optional<Shape> infer_shape(ast::Expr& expr);
     
     // ─────────────────────────────────────────────────────────────────────
     // Error reporting

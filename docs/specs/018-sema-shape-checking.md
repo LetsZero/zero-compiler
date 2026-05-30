@@ -1,8 +1,8 @@
 # Spec 018: Static (literal-derived) shape checking in sema
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** specs 014–017 (the ops whose shapes are inferred)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **Roadmap:** Phase 0, item 018.
@@ -95,4 +95,6 @@ All 25 pre-existing test binaries pass unchanged (they don't gate on `had_error(
 
 ## Amendment log
 
-- *Pre-approval* — Resolved autonomously: (a) shapes tracked in a sema-side `var_shapes_` map (`optional<vector<int64_t>>`), not in `types::Type` — avoids a system-wide type change for a bounded Phase-0 feature; (b) `nullopt` conflates "scalar" and "unknown tensor" because both mean "skip the check" — the right behaviour under the literal-derived-only policy; (c) inference runs once per top-level statement expression so mismatches report exactly once; (d) added a dedicated `SHAPE_MISMATCH` ErrorKind rather than overloading `TYPE_MISMATCH`, for clearer diagnostics; (e) sema errors stay non-fatal, so existing runtime-throw tests are unaffected and the new compile-time check is additive.
+- *Pre-approval* — Resolved autonomously: (a) shapes tracked in a sema-side `var_shapes_` map (`optional<vector<int64_t>>`), not in `types::Type`; (b) `nullopt` conflates "scalar" and "unknown tensor" because both mean "skip the check"; (c) inference runs once per top-level statement expression so mismatches report exactly once; (d) a dedicated `SHAPE_MISMATCH` ErrorKind; (e) sema errors stay non-fatal, so existing runtime-throw tests are unaffected.
+- *Implementation, verification* — `ctest` **26/26** (`ZeroShapeCheckTest`, 10 cases: literal/variable mismatch, matmul inner-dim mismatch, valid programs, broadcast-not-flagged, unknown-param-not-flagged, shape-preserving propagation, reduction-result broadcast). All 25 prior binaries unchanged (sema errors non-fatal). Shape inference behaved as designed; no rework.
+- *Implementation — orthogonal parser bug surfaced.* The e2e false-positive guard was first written **multi-line** and **hung in the parser** (not sema): the parser doesn't skip newlines inside `(...)`/`[...]`, so a multi-line `matmul(a,\n b)` errors mid-expression and the function-body loop spins (the long-deferred "general no-progress guard"). Shape-checking itself is fine on the single-line equivalent (sema clean). The e2e test was rewritten single-line; both parser issues are logged in `docs/DEFERRED.md` for a dedicated parser-robustness spec — recommended before the spec-019 capstone.

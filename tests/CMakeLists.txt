@@ -254,6 +254,15 @@ set_target_properties(test_tensor_scalar PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Static shape checking (spec 018).
+add_executable(test_shape_check
+    test_shape_check.cpp
+)
+target_link_libraries(test_shape_check PRIVATE zerosema)
+set_target_properties(test_shape_check PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -294,4 +303,5 @@ add_test(NAME ZeroPhase0E2ETest COMMAND test_phase0_e2e)
 add_test(NAME ZeroNDLiteralsTest COMMAND test_nd_literals)
 add_test(NAME ZeroElementwiseTest COMMAND test_elementwise)
 add_test(NAME ZeroTensorScalarTest COMMAND test_tensor_scalar)
+add_test(NAME ZeroShapeCheckTest COMMAND test_shape_check)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)

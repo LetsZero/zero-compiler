@@ -143,6 +143,29 @@ TEST(e2e_scale_by_scalar) {
     assert(near(d[0], 1.0f) && near(d[1], 2.0f) && near(d[2], 3.0f));
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Spec 018: a well-formed multi-op program (matmul + relu + exp + sum + /)
+// must analyze with NO sema error — guards the capstone path against
+// false-positive shape errors.
+// ─────────────────────────────────────────────────────────────────────
+
+TEST(e2e_no_false_positive_shape_error) {
+    // NOTE: single-line source — the parser does not yet treat newlines
+    // inside (...) / [...] as insignificant (tracked in DEFERRED.md). That
+    // is orthogonal to the shape-checking this test exercises.
+    const char* src =
+        "fn softmax(x: tensor) -> tensor { return exp(x) / sum(exp(x)); }\n"
+        "fn main() { let h = relu(matmul(tensor([[1.0, 2.0]]), tensor([[0.1,0.2,0.3],[0.4,0.5,0.6]]))); capture(softmax(h)); }\n";
+    SourceManager sm;
+    SourceID sid = sm.load_from_string("phase0.zero", src);
+    Parser parser(sm, sid);
+    auto prog = parser.parse();
+    assert(!parser.had_error());
+    zero::sema::Sema sema;
+    sema.analyze(prog);
+    assert(!sema.had_error());   // no false-positive shape error
+}
+
 int main() {
     std::cout << "=== Phase 0 — end-to-end integration ===\n";
     int rc = run_all_tests();

@@ -165,7 +165,10 @@ void Sema::register_builtins() {
 
 void Sema::check_fn(ast::FnDecl& fn) {
     push_scope();
-    
+    // Spec 018: shape tracking is per-function. Parameters are intentionally
+    // left unrecorded (unknown shape).
+    var_shapes_.clear();
+
     // Set current return type for return statement checking
     // If no annotation, use UNKNOWN to skip strict checking (MPP lenient)
     if (fn.return_type) {
@@ -199,8 +202,14 @@ void Sema::check_stmt(ast::Stmt& stmt) {
             types::Type init_type = types::Type::make_unknown();
             if (s.init) {
                 init_type = check_expr(*s.init);
+                // Spec 018: record the init's static shape (if known) so
+                // later uses of this variable can be shape-checked. This
+                // call also reports any shape mismatch inside the init.
+                if (auto sh = infer_shape(*s.init)) {
+                    var_shapes_[s.name] = *sh;
+                }
             }
-            
+
             types::Type var_type = init_type;
             if (s.type_annot) {
                 var_type = ast_to_types(s.type_annot->kind);
@@ -218,6 +227,7 @@ void Sema::check_stmt(ast::Stmt& stmt) {
             types::Type ret_type = types::Type::make_void();
             if (s.value) {
                 ret_type = check_expr(*s.value);
+                infer_shape(*s.value);   // spec 018: run shape checks
             }
             
             if (!types::types_compatible(current_return_type_, ret_type)) {
@@ -229,6 +239,7 @@ void Sema::check_stmt(ast::Stmt& stmt) {
         else if constexpr (std::is_same_v<T, ast::ExprStmt>) {
             if (s.expr) {
                 check_expr(*s.expr);
+                infer_shape(*s.expr);   // spec 018: run shape checks
             }
         }
         else if constexpr (std::is_same_v<T, ast::IfStmt>) {
@@ -345,6 +356,110 @@ types::Type Sema::check_expr(ast::Expr& expr) {
         }
         else {
             return types::Type::make_unknown();
+        }
+    }, expr.data);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Static shape inference (spec 018)
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace {
+int64_t shape_numel(const std::vector<int64_t>& s) {
+    int64_t n = 1;
+    for (int64_t d : s) n *= d;
+    return n;
+}
+std::string shape_str(const std::vector<int64_t>& s) {
+    std::string out = "[";
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (i) out += ", ";
+        out += std::to_string(s[i]);
+    }
+    return out + "]";
+}
+} // namespace
+
+std::optional<Sema::Shape> Sema::infer_shape(ast::Expr& expr) {
+    return std::visit([this](auto& e) -> std::optional<Shape> {
+        using T = std::decay_t<decltype(e)>;
+
+        if constexpr (std::is_same_v<T, ast::TensorLiteral>) {
+            return e.shape;
+        }
+        else if constexpr (std::is_same_v<T, ast::Identifier>) {
+            auto it = var_shapes_.find(e.name);
+            if (it != var_shapes_.end()) return it->second;
+            return std::nullopt;
+        }
+        else if constexpr (std::is_same_v<T, ast::GroupExpr>) {
+            return e.inner ? infer_shape(*e.inner) : std::nullopt;
+        }
+        else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
+            // Unary '-' is shape-preserving on a tensor.
+            return e.operand ? infer_shape(*e.operand) : std::nullopt;
+        }
+        else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
+            auto ls = e.left  ? infer_shape(*e.left)  : std::nullopt;
+            auto rs = e.right ? infer_shape(*e.right) : std::nullopt;
+
+            // Only the arithmetic ops produce a tensor; comparisons yield a
+            // scalar bool (unknown/uninteresting for shape).
+            switch (e.op) {
+                case ast::BinOp::ADD:
+                case ast::BinOp::SUB:
+                case ast::BinOp::MUL:
+                case ast::BinOp::DIV:
+                    break;
+                default:
+                    return std::nullopt;
+            }
+
+            if (ls && rs) {
+                if (*ls == *rs) return ls;
+                // scalar / [1] broadcast either direction.
+                if (shape_numel(*ls) == 1) return rs;
+                if (shape_numel(*rs) == 1) return ls;
+                error(ErrorKind::SHAPE_MISMATCH,
+                      "shape mismatch in '" + std::string(ast::binop_str(e.op)) +
+                      "': " + shape_str(*ls) + " vs " + shape_str(*rs),
+                      e.span);
+                return std::nullopt;
+            }
+            // One side known (e.g. tensor * scalar) -> propagate it.
+            if (ls) return ls;
+            if (rs) return rs;
+            return std::nullopt;
+        }
+        else if constexpr (std::is_same_v<T, ast::CallExpr>) {
+            if ((e.callee == "sum" || e.callee == "mean" || e.callee == "argmax")
+                && e.args.size() == 1) {
+                return Shape{1};   // full reduction -> [1]
+            }
+            if ((e.callee == "exp" || e.callee == "log" || e.callee == "sqrt"
+                 || e.callee == "tanh" || e.callee == "sigmoid" || e.callee == "relu")
+                && e.args.size() == 1) {
+                return infer_shape(*e.args[0]);   // shape-preserving
+            }
+            if (e.callee == "matmul" && e.args.size() == 2) {
+                auto a = infer_shape(*e.args[0]);
+                auto b = infer_shape(*e.args[1]);
+                if (a && b && a->size() == 2 && b->size() == 2) {
+                    if ((*a)[1] != (*b)[0]) {
+                        error(ErrorKind::SHAPE_MISMATCH,
+                              "matmul inner-dimension mismatch: " +
+                              shape_str(*a) + " x " + shape_str(*b),
+                              e.span);
+                        return std::nullopt;
+                    }
+                    return Shape{ (*a)[0], (*b)[1] };
+                }
+                return std::nullopt;
+            }
+            return std::nullopt;   // user function: result shape unknown
+        }
+        else {
+            return std::nullopt;   // numeric/string literals: scalar
         }
     }, expr.data);
 }
