@@ -45,4 +45,8 @@ This file is append-only. When an item is fixed, the entry stays (with a striket
 
 - **Optional `gtest` upgrade.** Test files use a custom `TEST()` macro and `assert()`. Workable but unfriendly when a test fails (no diff display, no per-assertion location). When the test count crosses ~50, consider migrating to gtest.
 
-- **CI for the compiler repo.** The runtime has GitHub Actions (runtime spec 007). The compiler doesn't yet. Adding it is half a day of work and prevents the freeze-equivalent from rotting (the compiler isn't frozen, but regressions still happen).
+- ~~**CI for the compiler repo.**~~ **Resolved by spec 012.** `.github/workflows/ci.yml` builds + runs the full ctest suite on every push to main and every PR, across ubuntu-latest and macos-latest, with recursive submodule checkout.
+
+- **Sanitizer axis in compiler CI.** Spec 012 ships an OS-only matrix. The compiler's top-level CMake doesn't wire ASAN/UBSAN/TSAN compile options for its own targets (the runtime submodule has them, but the flags don't propagate to compiler-owned libs). Adding `ZERO_*_SANITIZER`-style options to the compiler CMake and then a sanitizer axis to the CI matrix would catch memory bugs like the ones specs 008/009 fixed *automatically*. Worth doing given how many reference-invalidation bugs this codebase has had.
+
+- **Windows / MSVC CI.** The compiler has only been built with AppleClang (and, via CI, ubuntu gcc). MSVC support is untested. Add when there's a concrete need.
