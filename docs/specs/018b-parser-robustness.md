@@ -1,8 +1,8 @@
 # Spec 018b: Parser robustness — newlines in brackets + no-progress guard
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 007 (recovery), spec 015 (literal recovery)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **Roadmap:** Phase 0, item 018b (inserted; surfaced by spec 018).
@@ -109,3 +109,4 @@ All 26 pre-existing test binaries pass unchanged.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) unify the five identical statement-body loops into one `parse_stmt_block` helper carrying the guard, so they can't diverge and the fix lands in one place; (b) progress is measured by `current_.span.start_offset` (monotonic per token) — simplest reliable proxy without adding a lexer position counter; (c) newline-skipping scoped strictly to bracket/paren interiors, leaving statement-level newline semantics untouched; (d) restore the spec-018 e2e guard to multi-line as a regression test, closing the loop on what surfaced the bug.
+- *Implementation, verification* — `ctest` **27/27**. The five body loops collapsed into `parse_stmt_block`; newline-skips added in `parse_call` (after `(`, each `,`, before `)`), the group branch, the tensor-literal branch (after `(`/`[`, each row, before `]`/`)`), and `parse_number_row`. New `ZeroMultilineTest` (7 cases): multi-line call / 2-D literal / 1-D literal / group all parse clean; multi-line vs single-line produce identical IR (op counts); malformed garbage terminates within a 1 s budget with `had_error()`; statement-level newlines unchanged. The spec-018 e2e softmax-over-linear program is now **multi-line** and analyzes clean. All 26 prior binaries unchanged. The four-time-recurring no-progress hang is now structurally impossible.

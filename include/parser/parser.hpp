@@ -117,6 +117,11 @@ private:
     // an optional leading '-') appending to `out`. Sets `count` to the number
     // parsed. Returns false on a non-numeric token (caller recovers).
     bool parse_number_row(std::vector<double>& out, size_t& count);
+
+    // Spec 018b: shared statement-body loop (used by fn/if/else/while/block).
+    // Parses statements until '}' or EOF, with a no-progress guard that
+    // guarantees forward progress so malformed input can never hang.
+    void parse_stmt_block(std::vector<std::unique_ptr<ast::Stmt>>& out);
 };
 
 } // namespace parser

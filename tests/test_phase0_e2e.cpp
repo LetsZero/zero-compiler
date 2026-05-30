@@ -150,12 +150,16 @@ TEST(e2e_scale_by_scalar) {
 // ─────────────────────────────────────────────────────────────────────
 
 TEST(e2e_no_false_positive_shape_error) {
-    // NOTE: single-line source — the parser does not yet treat newlines
-    // inside (...) / [...] as insignificant (tracked in DEFERRED.md). That
-    // is orthogonal to the shape-checking this test exercises.
+    // Multi-line source (spec 018b made newlines inside (...) / [...]
+    // insignificant); doubles as a regression guard for the parser hang.
     const char* src =
         "fn softmax(x: tensor) -> tensor { return exp(x) / sum(exp(x)); }\n"
-        "fn main() { let h = relu(matmul(tensor([[1.0, 2.0]]), tensor([[0.1,0.2,0.3],[0.4,0.5,0.6]]))); capture(softmax(h)); }\n";
+        "fn main() {\n"
+        "  let h = relu(matmul(tensor([[1.0, 2.0]]),\n"
+        "                      tensor([[0.1, 0.2, 0.3],\n"
+        "                              [0.4, 0.5, 0.6]])));\n"
+        "  capture(softmax(h));\n"
+        "}\n";
     SourceManager sm;
     SourceID sid = sm.load_from_string("phase0.zero", src);
     Parser parser(sm, sid);

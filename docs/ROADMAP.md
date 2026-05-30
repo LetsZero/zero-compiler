@@ -128,7 +128,7 @@ Each row is one spec. Sizes: S ≈ half-day mechanical, M ≈ 1–2 days with ne
 - [x] **016** Remaining elementwise from source (`exp`/`log`/`sqrt`/`tanh`/`sigmoid`) — done, ctest 24/24
 - [x] **017** Tensor–scalar broadcast — done, ctest 25/25 (softmax's `e/sum(e)` already worked via tensor÷tensor[1]; 017 added `x * 2.0`-style scalar broadcast)
 - [x] **018** Sema shape-checking (static, literal-derived) — done, ctest 26/26
-- [ ] **018b** Parser robustness: skip newlines in `(...)`/`[...]`, + general no-progress guard (surfaced by 018; recommended before 019 so the MLP can be multi-line) — see DEFERRED.md
+- [x] **018b** Parser robustness: newlines in `(...)`/`[...]` + no-progress guard — done, ctest 27/27 (parser hang-proof; multi-line code parses)
 - [ ] **019** Stdlib `softmax` + MLP forward-pass capstone  → **Phase 0 COMPLETE**
 
 ---

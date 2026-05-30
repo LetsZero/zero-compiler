@@ -157,15 +157,9 @@ FnDecl Parser::parse_fn_decl() {
     consume(TokenType::LBRACE, "Expected '{' before function body");
     skip_newlines();
     
-    // Parse body statements
-    while (!check(TokenType::RBRACE) && !current_.is_eof()) {
-        auto stmt = parse_stmt();
-        if (stmt) {
-            fn.body.push_back(std::move(stmt));
-        }
-        skip_newlines();
-    }
-    
+    // Parse body statements (spec 018b: shared loop with no-progress guard).
+    parse_stmt_block(fn.body);
+
     consume(TokenType::RBRACE, "Expected '}' after function body");
     fn.span = start.merge(previous_.span);
     
@@ -295,11 +289,7 @@ std::unique_ptr<Stmt> Parser::parse_if_stmt() {
     consume(TokenType::LBRACE, "Expected '{' after if condition");
     skip_newlines();
     
-    while (!check(TokenType::RBRACE) && !current_.is_eof()) {
-        auto stmt = parse_stmt();
-        if (stmt) if_stmt.then_branch.push_back(std::move(stmt));
-        skip_newlines();
-    }
+    parse_stmt_block(if_stmt.then_branch);
     consume(TokenType::RBRACE, "Expected '}' after if body");
     
     // Optional else
@@ -309,11 +299,7 @@ std::unique_ptr<Stmt> Parser::parse_if_stmt() {
         consume(TokenType::LBRACE, "Expected '{' after else");
         skip_newlines();
         
-        while (!check(TokenType::RBRACE) && !current_.is_eof()) {
-            auto stmt = parse_stmt();
-            if (stmt) if_stmt.else_branch.push_back(std::move(stmt));
-            skip_newlines();
-        }
+        parse_stmt_block(if_stmt.else_branch);
         consume(TokenType::RBRACE, "Expected '}' after else body");
     }
     
@@ -332,11 +318,7 @@ std::unique_ptr<Stmt> Parser::parse_while_stmt() {
     consume(TokenType::LBRACE, "Expected '{' after while condition");
     skip_newlines();
     
-    while (!check(TokenType::RBRACE) && !current_.is_eof()) {
-        auto stmt = parse_stmt();
-        if (stmt) while_stmt.body.push_back(std::move(stmt));
-        skip_newlines();
-    }
+    parse_stmt_block(while_stmt.body);
     consume(TokenType::RBRACE, "Expected '}' after while body");
     
     while_stmt.span = while_stmt.span.merge(previous_.span);
@@ -350,12 +332,8 @@ std::unique_ptr<Stmt> Parser::parse_block() {
     consume(TokenType::LBRACE, "Expected '{'");
     skip_newlines();
     
-    while (!check(TokenType::RBRACE) && !current_.is_eof()) {
-        auto stmt = parse_stmt();
-        if (stmt) block.stmts.push_back(std::move(stmt));
-        skip_newlines();
-    }
-    
+    parse_stmt_block(block.stmts);
+
     consume(TokenType::RBRACE, "Expected '}'");
     block.span = block.span.merge(previous_.span);
     return make_stmt(std::move(block));
@@ -492,18 +470,23 @@ std::unique_ptr<Expr> Parser::parse_call() {
         call.callee = expr->as<Identifier>().name;
         call.span = expr->span();
         
-        // Parse arguments (including keyword arguments)
+        // Parse arguments. Spec 018b: newlines are insignificant inside the
+        // argument list, so multi-line calls (matmul(a,\n b)) parse.
+        skip_newlines();
         if (!check(TokenType::RPAREN)) {
             do {
+                skip_newlines();
                 // Check for keyword argument: name = expr
                 if (check(TokenType::IDENT) && lexer_.peek().type == TokenType::EQ) {
                     advance();  // consume identifier (keyword name)
                     advance();  // consume '='
                 }
                 call.args.push_back(parse_expr());
+                skip_newlines();
             } while (match(TokenType::COMMA));
         }
-        
+
+        skip_newlines();
         consume(TokenType::RPAREN, "Expected ')' after arguments");
         call.span = call.span.merge(previous_.span);
         
@@ -560,7 +543,9 @@ std::unique_ptr<Expr> Parser::parse_primary() {
     // Grouped expression
     if (match(TokenType::LPAREN)) {
         Span start = previous_.span;
+        skip_newlines();   // spec 018b: newlines insignificant inside parens
         auto inner = parse_expr();
+        skip_newlines();
         consume(TokenType::RPAREN, "Expected ')' after expression");
 
         GroupExpr group;
@@ -576,7 +561,9 @@ std::unique_ptr<Expr> Parser::parse_primary() {
     if (match(TokenType::TENSOR)) {
         Span start = previous_.span;
         consume(TokenType::LPAREN, "Expected '(' after 'tensor'");
+        skip_newlines();   // spec 018b: newlines insignificant inside the literal
         consume(TokenType::LBRACKET, "Expected '[' to start tensor literal");
+        skip_newlines();
 
         TensorLiteral lit;
         bool failed = false;
@@ -587,6 +574,7 @@ std::unique_ptr<Expr> Parser::parse_primary() {
             int64_t rows = 0;
             while (!check(TokenType::RBRACKET) && !current_.is_eof()) {
                 consume(TokenType::LBRACKET, "Expected '[' to start a tensor row");
+                skip_newlines();
                 if (check(TokenType::LBRACKET)) {
                     error("only 1-D and 2-D tensor literals are supported");
                     failed = true;
@@ -594,6 +582,7 @@ std::unique_ptr<Expr> Parser::parse_primary() {
                 }
                 size_t n = 0;
                 if (!parse_number_row(lit.values, n)) { failed = true; break; }
+                skip_newlines();
                 consume(TokenType::RBRACKET, "Expected ']' to end a tensor row");
                 if (cols < 0) {
                     cols = static_cast<int64_t>(n);
@@ -604,6 +593,7 @@ std::unique_ptr<Expr> Parser::parse_primary() {
                 }
                 ++rows;
                 if (!match(TokenType::COMMA)) break;
+                skip_newlines();   // newlines between rows
             }
             lit.shape = { rows, cols < 0 ? 0 : cols };
         } else {
@@ -631,7 +621,9 @@ std::unique_ptr<Expr> Parser::parse_primary() {
             return make_expr(std::move(lit));
         }
 
+        skip_newlines();   // spec 018b: newlines before the closing ] )
         consume(TokenType::RBRACKET, "Expected ']' to end tensor literal");
+        skip_newlines();
         consume(TokenType::RPAREN, "Expected ')' to end tensor literal");
 
         if (lit.values.empty()) {
@@ -669,8 +661,25 @@ bool Parser::parse_number_row(std::vector<double>& out, size_t& count) {
         }
         ++count;
         if (!match(TokenType::COMMA)) break;
+        skip_newlines();   // spec 018b: newlines insignificant between elements
     }
     return true;
+}
+
+void Parser::parse_stmt_block(std::vector<std::unique_ptr<ast::Stmt>>& out) {
+    // Spec 018b: the single statement-body loop shared by fn/if/else/while/
+    // block. The no-progress guard guarantees forward progress so that
+    // malformed input can never spin the loop forever (consume() does not
+    // advance on a mismatch, which previously allowed an infinite loop).
+    while (!check(TokenType::RBRACE) && !current_.is_eof()) {
+        const uint32_t before = current_.span.start_offset;
+        auto stmt = parse_stmt();
+        if (stmt) out.push_back(std::move(stmt));
+        skip_newlines();
+        if (!current_.is_eof() && current_.span.start_offset == before) {
+            advance();
+        }
+    }
 }
 
 } // namespace parser

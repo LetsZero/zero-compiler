@@ -263,6 +263,15 @@ set_target_properties(test_shape_check PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Multi-line parsing + hang-proofing (spec 018b).
+add_executable(test_multiline
+    test_multiline.cpp
+)
+target_link_libraries(test_multiline PRIVATE zeroir zeroparse zerosema)
+set_target_properties(test_multiline PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -304,4 +313,5 @@ add_test(NAME ZeroNDLiteralsTest COMMAND test_nd_literals)
 add_test(NAME ZeroElementwiseTest COMMAND test_elementwise)
 add_test(NAME ZeroTensorScalarTest COMMAND test_tensor_scalar)
 add_test(NAME ZeroShapeCheckTest COMMAND test_shape_check)
+add_test(NAME ZeroMultilineTest COMMAND test_multiline)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)
