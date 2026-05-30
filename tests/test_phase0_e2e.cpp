@@ -131,6 +131,18 @@ TEST(e2e_softmax_numerator) {
     assert(near(d[2], std::exp(3.0f), 1e-4f));
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Spec 017: scalar literal in tensor arithmetic, through a user fn.
+// ─────────────────────────────────────────────────────────────────────
+
+TEST(e2e_scale_by_scalar) {
+    run_src(
+        "fn scale(t: tensor) -> tensor { return t * 0.5; }\n"
+        "fn main() { capture(scale(tensor([2.0, 4.0, 6.0]))); }\n");
+    const float* d = static_cast<const float*>(captured.as_tensor()->data);
+    assert(near(d[0], 1.0f) && near(d[1], 2.0f) && near(d[2], 3.0f));
+}
+
 int main() {
     std::cout << "=== Phase 0 — end-to-end integration ===\n";
     int rc = run_all_tests();

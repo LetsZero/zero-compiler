@@ -245,6 +245,15 @@ set_target_properties(test_elementwise PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Tensor-scalar broadcast (spec 017).
+add_executable(test_tensor_scalar
+    test_tensor_scalar.cpp
+)
+target_link_libraries(test_tensor_scalar PRIVATE zerobackend zerosema)
+set_target_properties(test_tensor_scalar PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -284,4 +293,5 @@ add_test(NAME ZeroReductionsTest COMMAND test_reductions)
 add_test(NAME ZeroPhase0E2ETest COMMAND test_phase0_e2e)
 add_test(NAME ZeroNDLiteralsTest COMMAND test_nd_literals)
 add_test(NAME ZeroElementwiseTest COMMAND test_elementwise)
+add_test(NAME ZeroTensorScalarTest COMMAND test_tensor_scalar)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)

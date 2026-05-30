@@ -1,8 +1,8 @@
 # Spec 017: Tensor–scalar broadcast
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 005 (binary tensor-op interpreter block), spec 014 (reductions, for the e2e softmax)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **Roadmap:** Phase 0, item 017.
@@ -114,3 +114,4 @@ All 24 pre-existing test binaries pass unchanged. Floats use ε bounds.
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) fix is interpreter-only — lowering already dispatches `tensor OP scalar` to the tensor op, so no IR/sema/lowering change; (b) support tensor-left (all ops) and scalar-left commutative (`+`,`*`) by swapping; scalar-left non-commutative throws a clear error and is deferred (the runtime broadcast can't express `s - t[i]`); (c) materialize the scalar in the interpreter from the `RuntimeValue`, so scalar literals and scalar variables both work with no lowering distinction; (d) recorded that softmax's `e/s` already works (tensor÷tensor[1]) so this spec is off the capstone-critical path — an ergonomic fix, not a blocker.
+- *Implementation, verification* — Interpreter-only as designed: one `scalar_to_tensor1` helper + a branch in the binary block. `ctest` **25/25** (`ZeroTensorScalarTest`, 9 cases incl. the scalar-left-non-commutative throw and the tensor÷tensor[1] regression; `test_phase0_e2e` extended with `t * 0.5`). All 24 prior binaries unchanged. First try.

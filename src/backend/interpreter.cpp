@@ -43,6 +43,17 @@ static TensorPtr alloc_output_like(const int64_t* shape, int8_t ndim) {
     return out;
 }
 
+// Spec 017: materialise a scalar RuntimeValue as a [1] F32 tensor so the
+// runtime's numel==1 broadcast can apply it against a tensor operand.
+static TensorPtr scalar_to_tensor1(const RuntimeValue& v) {
+    int64_t one[1] = {1};
+    TensorPtr t(
+        new zero::Tensor(zero::Tensor::alloc(one, 1, zero::DType::F32)),
+        [](zero::Tensor* p) { if (p && p->owns_data) p->free(); delete p; });
+    static_cast<float*>(t->data)[0] = static_cast<float>(v.to_float());
+    return t;
+}
+
 // Format-and-throw helper. Centralises the message format that spec 003
 // established (op name + code + msg + @span fragment).
 //
@@ -381,11 +392,33 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
         case OpCode::TENSOR_DIV: {
             RuntimeValue lhs_v = get_value(instr.operands[0]);
             RuntimeValue rhs_v = get_value(instr.operands[1]);
-            if (!lhs_v.is_tensor() || !rhs_v.is_tensor()) {
+
+            // Spec 017: tensor-scalar broadcast. `a` is always the
+            // shape-defining tensor operand; `b` is the other (materialised
+            // to a [1] tensor if it's a scalar). The runtime broadcasts a
+            // numel==1 `b` across `a`.
+            TensorPtr a, b;
+            const bool lt = lhs_v.is_tensor();
+            const bool rt = rhs_v.is_tensor();
+            if (lt && rt) {
+                a = lhs_v.as_tensor();
+                b = rhs_v.as_tensor();
+            } else if (lt) {                       // tensor OP scalar
+                a = lhs_v.as_tensor();
+                b = scalar_to_tensor1(rhs_v);
+            } else if (rt) {                       // scalar OP tensor
+                if (instr.op == OpCode::TENSOR_ADD || instr.op == OpCode::TENSOR_MUL) {
+                    // commutative: swap so the tensor is `a`.
+                    a = rhs_v.as_tensor();
+                    b = scalar_to_tensor1(lhs_v);
+                } else {
+                    throw std::runtime_error(
+                        "scalar on the left of a non-commutative tensor op "
+                        "(s - t, s / t) is not supported");
+                }
+            } else {
                 throw std::runtime_error("tensor binary op: non-tensor operand");
             }
-            const TensorPtr& a = lhs_v.as_tensor();
-            const TensorPtr& b = rhs_v.as_tensor();
 
             int64_t shape_arr[zero::MAX_DIMS] = {0};
             for (int8_t i = 0; i < a->ndim; ++i) shape_arr[i] = a->shape[i];
