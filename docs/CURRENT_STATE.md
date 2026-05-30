@@ -1,75 +1,90 @@
-# Zero Compiler — Current State (Audit)
+# Zero Compiler — Current State
 
-> A snapshot of what actually exists in this repo today vs. what [COMPILER_OVERVIEW.md](COMPILER_OVERVIEW.md) aspires to. Read this before writing any spec — it tells you which gap to close first.
+> **Read this first if you are resuming the project cold.** It is the accurate
+> "where are we right now" snapshot. For the plan and the per-feature history,
+> see [ROADMAP.md](ROADMAP.md) and [docs/specs/](specs/).
 
-**Audit date:** end of v1.4 runtime cycle.
-**Audit method:** read-only pass over `src/`, `include/`, `tests/`, `runtime/`, `CMakeLists.txt`, and the (stale) `mpp_status.md`.
-**Verdict:** the compiler is a **working scalar pipeline** stapled to a **completely stubbed tensor surface**. The frontend is real; the tensor side is hollow.
+**As of:** Phase 0 complete (spec 019). CI green on Linux + macOS, **27/27** tests.
 
 ---
 
-## What works today
+## TL;DR
 
-| Stage | Status | Notes |
-|---|---|---|
-| Lexer ([src/lexer/](../src/lexer)) | ✅ substantive | identifiers, literals, keywords, operators, source spans on tokens. |
-| Parser ([src/parser/](../src/parser)) | ✅ substantive | recursive descent → AST, precedence, basic error recovery. |
-| Source manager ([src/source/](../src/source)) | ✅ substantive | file loading, line/col mapping, `Span` with merge. |
-| Diagnostics ([src/diagnostics/](../src/diagnostics)) | ✅ substantive | "Frame & Focus" reporter with source-span rendering. |
-| Sema ([src/sema/](../src/sema)) | 🟡 partial | undefined-name and basic type-compatibility checks; no shape/dtype semantics yet. |
-| IR ([include/ir/ir.hpp](../include/ir/ir.hpp)) | ✅ substantive | SSA Module/Function/BasicBlock/Value/Instruction, 23 opcodes. |
-| Lowering ([src/ir/lowering.cpp](../src/ir/lowering.cpp)) | ✅ substantive | every AST statement/expression lowers to ZIR. |
-| Interpreter ([src/backend/interpreter.cpp](../src/backend/interpreter.cpp)) | 🟡 substantive but partial | every **scalar** opcode executes; every **tensor** opcode is a stub. |
-| Driver ([src/driver/main.cpp](../src/driver/main.cpp)) | ✅ substantive | `zeroc` CLI, `--dump-ir`, end-to-end compile-and-run for scalar programs. |
-| Tests ([tests/](../tests)) | ✅ substantive | ~50 test cases across lexer/parser/sema/ir/backend. |
+**Phase 0 is complete.** A 2-layer MLP with a softmax output, written in `.zero`
+source, runs end-to-end through the interpreter and produces correct numerics
+(`{0.410960, 0.589040}`, matches an independent oracle, sums to 1.0). `softmax`
+is composed in Zero from `exp`/`sum`/`÷` — there is no runtime/IR softmax
+primitive. The language can express and execute a real forward pass.
 
-## What's hollow or missing
+What it is: a **tree-walking interpreter** for a small ML-native language,
+targeting the frozen Core Runtime **v1.4.0**.
+What it is **not** yet: no autograd (can't train), no LLVM/native codegen
+(interpreter only), no GPU.
 
-| Concern | Where | Severity |
-|---|---|---|
-| **All tensor ops are no-ops in the interpreter.** | [src/backend/interpreter.cpp:276–284](../src/backend/interpreter.cpp) — `TENSOR_*` opcodes return `nullptr`. | 🔴 blocker |
-| **Compiler consumes none of the v1.4 runtime surface.** | runtime adapter at [runtime/](../runtime) is only `print`/`log` wrappers — no tensor-op bridge. | 🔴 blocker |
-| **C++ standard mismatch.** | [CMakeLists.txt](../CMakeLists.txt) sets `CXX_STANDARD 17`; the submodule runtime requires C++20 (constexpr, designated initializers, `std::array` initialization). | 🔴 build risk |
-| **IR nodes have no source span.** | [include/ir/ir.hpp](../include/ir/ir.hpp) `Instruction` struct lacks a `Span` field. Violates [CLAUDE.md](../CLAUDE.md) ("every IR node carries a source span"). | 🟠 contract drift |
-| **No IR passes folder.** | No `src/ir/passes/`. No DCE, no constant folding, no verifier. | 🟠 expected gap |
-| **No `Status` plumbing through the IR.** | Lowering emits tensor ops as if they return `void`. The runtime returns `Status` since v1.2 spec 002. | 🔴 will silently break once linked |
-| **No `Stream*` in the calling convention.** | Lowering doesn't thread a stream parameter through tensor calls. Required by runtime spec 003. | 🟠 ABI mismatch with frozen runtime |
-| **No support for `gather`/`scatter` / `Generator` / `contiguous`** (specs 004/005/006). | No IR opcodes, no lowering paths. | 🟠 missing surface |
-| **No end-to-end tensor test.** | [tests/](../tests) has scalar coverage; nothing exercises source → IR → real tensor op. | 🟠 nothing proves the pipeline works for the language's main job |
-| **`mpp_status.md` is stale.** | Dated 2026-01-12, predates the runtime freeze cycle. Most "DONE" items still hold; the runtime-integration column is now wrong. | 🟢 cosmetic — this audit supersedes it. |
+---
 
-## The fundamental problem
+## What works (verified, tested)
 
-The compiler can compile and run programs that do scalar arithmetic, control flow, and call into runtime print/log helpers. **It cannot, today, produce a program that adds two tensors.** Every tensor opcode in the IR is recognized by the interpreter and then dropped on the floor.
+- **Full frontend:** lexer, parser (recursive-descent, multi-line aware,
+  hang-proof), source manager, "Frame & Focus" diagnostics.
+- **Sema:** name/type resolution + **static literal-derived shape checking**
+  (catches `tensor([1,2]) + tensor([1,2,3])` and bad `matmul` dims at compile time).
+- **IR (ZIR):** SSA Module/Function/BasicBlock/Value/Instruction; every instruction
+  carries a source span; blocks addressed by id (no dangling refs).
+- **Lowering:** AST → ZIR for scalars, control flow, functions, and all tensor ops below.
+- **Interpreter:** executes against the frozen runtime; per-frame value storage
+  (recursion-safe); `Status` errors surfaced as source-spanned `RuntimeError`
+  diagnostics.
+- **Tensors from source:**
+  - literals: 1-D and 2-D (`tensor([[1,2],[3,4]])`), multi-line OK
+  - elementwise: `+ - * /`, unary `-`, `relu`, `exp`, `log`, `sqrt`, `tanh`, `sigmoid`
+  - `matmul`
+  - reductions: `sum`, `mean`, `argmax` (full reduction → `[1]`)
+  - tensor–scalar broadcast (`x * 2.0`)
+  - user functions with tensor params/returns; nested calls
+- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 27 test binaries.
 
-This is recoverable. The frontend is genuinely usable. The IR is clean. The interpreter has the right shape — it just needs its tensor handlers connected to `external/core-runtime/include/zero/ops/*.hpp`. But until that connection lands, nothing the compiler emits actually exercises the runtime.
+## What does NOT exist yet (the honest gaps)
+
+- **Autograd / training.** Forward pass only. This is the Phase-1 headline.
+- **LLVM / native codegen.** Tree-walking interpreter only — not fast, not deployable.
+- **GPU / MLIR.**
+- **Multi-dtype compute.** F32 only (the runtime's fp8/bf16 enums don't compute).
+- **Module/import system.** `stdlib/nn.zero` exists as an artifact but isn't importable;
+  programs define helpers (e.g. `softmax`) inline.
+- **Batched / per-axis reductions.** `sum` etc. are full-reduction only (per-row
+  softmax for a batched MLP needs last-axis reductions).
+- **Other deferred items:** see [DEFERRED.md](DEFERRED.md) (all *bug/robustness*
+  items are resolved; what remains is features + the deliberately-skipped
+  `zero::ir::` rename and gtest migration).
 
 ## Pinned versions
 
-- Compiler tree: current `main` (commit `21fa6fa`).
-- Core runtime submodule: pinned at `v1.4.0` (commit `a9785af`).
-
-These two are now in agreement; before this audit they were not (submodule was at v1.2.0).
-
----
-
-## What this implies for the first specs
-
-The audit suggests a clear order for the first three compiler specs. None of them is the "shiny" feature; all three are foundation.
-
-1. **Spec 001 — Build foundation against v1.4 runtime.** Bump `CXX_STANDARD` to 20, confirm the submodule includes resolve, link a trivial test that calls one runtime op (`zero::ops::add`) from a host-side test (not yet from the compiler). Proves the bridge is buildable before we ask the compiler to drive it.
-
-2. **Spec 002 — Source spans on IR nodes.** Tiny but contract-critical. Adds a `Span` field to `Instruction`, threads it through `IRBuilder`, updates the dumper. Closes the gap CLAUDE.md created.
-
-3. **Spec 003 — End-to-end tensor add.** Pick a single op (`add`), lower it from AST to a new `TENSOR_ADD` (already exists in the enum) that actually calls `zero::ops::add` in the interpreter with a real F32 contiguous tensor. Plumb the new `Status` return into a runtime-error diagnostic. This is the first spec that proves the language can do its job.
-
-After these three, every subsequent spec is "add another op" or "add another pass" — at that point we're building, not bootstrapping. But these three have to come first, in this order, because each one unblocks the next.
+- Compiler: `main` (Phase 0 complete; specs 001–019 implemented).
+- Core runtime submodule: **v1.4.0** (`external/core-runtime`, frozen). Read-only
+  from this repo — new primitives require a spec in the runtime repo.
 
 ---
 
-## See also
+## How to resume (for a fresh session)
 
-- [COMPILER_OVERVIEW.md](COMPILER_OVERVIEW.md) — where we're going.
-- [CLAUDE.md](../CLAUDE.md) — the rules.
-- [`docs/specs/_TEMPLATE.md`](specs/_TEMPLATE.md) — the spec workflow.
-- [external/core-runtime/docs/CORE_RUNTIME_SPEC.md](../external/core-runtime/docs/CORE_RUNTIME_SPEC.md) — the surface this compiler targets.
+1. **Read, in order:** [CLAUDE.md](../CLAUDE.md) (inviolable rules), this file,
+   [ROADMAP.md](ROADMAP.md), [DEFERRED.md](DEFERRED.md).
+2. **Build & test:** `cmake -B build && cmake --build build --parallel && ctest --test-dir build`
+   (expect 27/27). The submodule must be initialised:
+   `git submodule update --init --recursive`.
+3. **Workflow:** spec-driven. Every change starts with an approved
+   `docs/specs/NNN-*.md` (template in `docs/specs/_TEMPLATE.md`); tests written
+   from the spec; "Out of scope" is binding; commit with the amendment log updated;
+   push and confirm CI green on both platforms.
+4. **Next work = Phase 1.** Not yet planned in detail. Per the ROADMAP and the
+   runtime's `NEXT_STEPS.md`: **autograd first** (runtime-tape, forward then
+   backward), **then LLVM CPU codegen**. Phase 1 deserves its own roadmap doc
+   (4–6 specs) before coding starts — mirror this Phase-0 ROADMAP's structure.
+
+---
+
+## Note on `mpp_status.md`
+
+`mpp_status.md` (dated 2026-01-12) predates this whole effort and is superseded by
+this file + ROADMAP.md. Treat it as historical.
