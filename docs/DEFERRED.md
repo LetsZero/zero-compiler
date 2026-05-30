@@ -41,6 +41,10 @@ This file is append-only. When an item is fixed, the entry stays (with a striket
 
 - **`Generator` (RNG) integration.** The runtime exposes `Generator` (spec 005 of the runtime). No compiler-side wiring. Needed for dropout, init, sampling.
 
+## Robustness (continued)
+
+- **Linux-only abort in `ZeroSourceTensorTest` and `ZeroFunctionTensorIOTest`.** Surfaced by spec 012's first CI run. Both abort on `ubuntu-latest` (libstdc++) with `terminate called without an active exception`; both pass on macOS (libc++) and in all local runs. `ZeroRemainingTensorOpsTest` exercises the same source→lower→interpret→`capture` path and passes on Linux, so it is something specific to these two. `terminate called without an active exception` points at an exception escaping a `noexcept`/`throw;`/destructor context or a fault during static destruction (both tests hold a `static RuntimeValue captured` carrying a `TensorPtr` with a custom `free()`-ing deleter at exit). Buffered `std::cout` is lost on abort, so the per-subtest culprit is not yet pinned — step one of the fix is to flush per-subtest (cerr/unitbuf) and read the next CI run. **Bug in shipped code (specs 004/006); gets spec 013.**
+
 ## Build / tooling
 
 - **Optional `gtest` upgrade.** Test files use a custom `TEST()` macro and `assert()`. Workable but unfriendly when a test fails (no diff display, no per-assertion location). When the test count crosses ~50, consider migrating to gtest.
