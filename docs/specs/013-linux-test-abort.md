@@ -1,8 +1,8 @@
 # Spec 013: Fix Linux-only abort in source/function tensor tests
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 012 (CI surfaced it), spec 003 (TensorPtr deleter), specs 004/006 (the affected tests)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 
@@ -79,3 +79,4 @@ If the Linux leg is still red after this change, the now-flushed per-subtest out
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) ship the most-likely fix (deterministic teardown) and the diagnostic (per-subtest flush) in one CI iteration, rather than a pure observe-then-fix round-trip — the fix is correct hygiene regardless, and the flush de-risks the case where it misses; (b) keep the change test-side only, with an explicit escape hatch in §6/§5 to move into production code if CI proves a real production bug; (c) the acceptance signal is intrinsically CI-based (the bug is libstdc++-only), which this spec states plainly rather than pretending local verification suffices.
+- *Implementation, verification — HYPOTHESIS CONFIRMED.* The static-destruction hypothesis was correct: resetting `captured` before `main` returns eliminated the abort, no production code needed. CI run 26692598115 is **green on both legs** — `ubuntu-latest: success`, `macos-latest: success`, 20/20 each. The escape hatch in §6 (move fix into production code) was not needed. Local macOS ctest remains 20/20. This is the first fully-green multi-platform CI run on the compiler.

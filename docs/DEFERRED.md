@@ -43,7 +43,7 @@ This file is append-only. When an item is fixed, the entry stays (with a striket
 
 ## Robustness (continued)
 
-- **Linux-only abort in `ZeroSourceTensorTest` and `ZeroFunctionTensorIOTest`.** Surfaced by spec 012's first CI run. Both abort on `ubuntu-latest` (libstdc++) with `terminate called without an active exception`; both pass on macOS (libc++) and in all local runs. `ZeroRemainingTensorOpsTest` exercises the same source→lower→interpret→`capture` path and passes on Linux, so it is something specific to these two. `terminate called without an active exception` points at an exception escaping a `noexcept`/`throw;`/destructor context or a fault during static destruction (both tests hold a `static RuntimeValue captured` carrying a `TensorPtr` with a custom `free()`-ing deleter at exit). Buffered `std::cout` is lost on abort, so the per-subtest culprit is not yet pinned — step one of the fix is to flush per-subtest (cerr/unitbuf) and read the next CI run. **Bug in shipped code (specs 004/006); gets spec 013.**
+- ~~**Linux-only abort in `ZeroSourceTensorTest` and `ZeroFunctionTensorIOTest`.**~~ **Resolved by spec 013.** Root cause confirmed: static-destruction of the `static RuntimeValue captured`'s `TensorPtr` ran its `free()`-ing deleter at process exit, which libstdc++ (Linux) and libc++ (macOS) handle differently. Fix: reset `captured` before `main` returns so no deleter runs during static destruction. CI now green on both `ubuntu-latest` and `macos-latest`.
 
 ## Build / tooling
 
