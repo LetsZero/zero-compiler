@@ -153,7 +153,8 @@ void Sema::register_builtins() {
     // sum/mean/argmax(t) - reductions (spec 014). matmul(a, b) (spec 015).
     // All dispatched to TENSOR_* at lowering when args are tensors; return
     // a tensor.
-    for (const char* name : {"sum", "mean", "argmax", "matmul"}) {
+    for (const char* name : {"sum", "mean", "argmax", "matmul",
+                             "exp", "log", "sqrt", "tanh", "sigmoid"}) {
         FnSignature sig;
         sig.name = name;
         sig.return_type = types::Type::make_tensor();

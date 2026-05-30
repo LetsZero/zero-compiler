@@ -125,7 +125,7 @@ Each row is one spec. Sizes: S ≈ half-day mechanical, M ≈ 1–2 days with ne
 
 - [x] **014** Reductions from source (`sum`/`mean`/`argmax`) — done, ctest 22/22
 - [x] **015** N-D tensor literals + source `matmul` — done (1-D/2-D), ctest 23/23
-- [ ] **016** Remaining elementwise from source (`exp`/`log`/`sqrt`/`tanh`/`sigmoid`)
+- [x] **016** Remaining elementwise from source (`exp`/`log`/`sqrt`/`tanh`/`sigmoid`) — done, ctest 24/24
 - [ ] **017** Tensor–scalar broadcast
 - [ ] **018** Sema shape-checking (static, literal-derived)
 - [ ] **019** Stdlib `softmax` + MLP forward-pass capstone  → **Phase 0 COMPLETE**

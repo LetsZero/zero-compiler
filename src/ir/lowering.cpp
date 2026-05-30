@@ -208,8 +208,14 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
             }
             // Spec 005: dispatch builtin tensor-aware calls. `relu(t)`
             // with a single tensor argument lowers to TENSOR_RELU.
-            if (e.callee == "relu" && args.size() == 1 && args[0].type.is_tensor()) {
-                return builder.tensor_relu(args[0]);
+            if (args.size() == 1 && args[0].type.is_tensor()) {
+                if (e.callee == "relu")    return builder.tensor_relu(args[0]);
+                // Spec 016: shape-preserving unary math.
+                if (e.callee == "exp")     return builder.tensor_exp(args[0]);
+                if (e.callee == "log")     return builder.tensor_log(args[0]);
+                if (e.callee == "sqrt")    return builder.tensor_sqrt(args[0]);
+                if (e.callee == "tanh")    return builder.tensor_tanh(args[0]);
+                if (e.callee == "sigmoid") return builder.tensor_sigmoid(args[0]);
             }
             // Spec 014: reductions on a single tensor argument.
             if (args.size() == 1 && args[0].type.is_tensor()) {

@@ -95,6 +95,13 @@ enum class OpCode {
     TENSOR_SUM,     // result = sum(op0)
     TENSOR_MEAN,    // result = mean(op0)
     TENSOR_ARGMAX,  // result = flat index of max(op0), as float
+
+    // Spec 016: shape-preserving unary elementwise math.
+    TENSOR_EXP,     // result = exp(op0)
+    TENSOR_LOG,     // result = log(op0)
+    TENSOR_SQRT,    // result = sqrt(op0)
+    TENSOR_TANH,    // result = tanh(op0)
+    TENSOR_SIGMOID, // result = sigmoid(op0)
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -132,6 +139,11 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_SUM: return "tensor.sum";
         case OpCode::TENSOR_MEAN: return "tensor.mean";
         case OpCode::TENSOR_ARGMAX: return "tensor.argmax";
+        case OpCode::TENSOR_EXP: return "tensor.exp";
+        case OpCode::TENSOR_LOG: return "tensor.log";
+        case OpCode::TENSOR_SQRT: return "tensor.sqrt";
+        case OpCode::TENSOR_TANH: return "tensor.tanh";
+        case OpCode::TENSOR_SIGMOID: return "tensor.sigmoid";
         default: return "unknown";
     }
 }

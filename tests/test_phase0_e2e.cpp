@@ -114,6 +114,23 @@ TEST(e2e_linear_layer_matmul) {
     assert(near(d[0], 9.0f) && near(d[1], 12.0f) && near(d[2], 15.0f));
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Spec 016: softmax numerator — exp over a vector, through a user fn.
+// The divide-by-sum (full softmax) waits on spec 017 (broadcast) + 019.
+// ─────────────────────────────────────────────────────────────────────
+
+TEST(e2e_softmax_numerator) {
+    run_src(
+        "fn num(t: tensor) -> tensor { return exp(t); }\n"
+        "fn main() { capture(num(tensor([1.0, 2.0, 3.0]))); }\n");
+    const auto& t = captured.as_tensor();
+    assert(t->ndim == 1 && t->shape[0] == 3);
+    const float* d = static_cast<const float*>(t->data);
+    assert(near(d[0], std::exp(1.0f), 1e-4f));
+    assert(near(d[1], std::exp(2.0f), 1e-4f));
+    assert(near(d[2], std::exp(3.0f), 1e-4f));
+}
+
 int main() {
     std::cout << "=== Phase 0 — end-to-end integration ===\n";
     int rc = run_all_tests();

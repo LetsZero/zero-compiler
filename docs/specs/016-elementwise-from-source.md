@@ -1,8 +1,8 @@
 # Spec 016: Remaining elementwise ops from source
 
-**Status:** Approved
+**Status:** Implemented
 **Depends on:** spec 005 (unary tensor-op dispatch + interpreter unary block)
-**PR:** (pending)
+**PR:** (local commit)
 **Author:** Ritwik
 **Repo:** zero-compiler
 **Roadmap:** Phase 0, item 016.
@@ -88,3 +88,4 @@ All 23 pre-existing test binaries pass unchanged. Float comparisons use an epsil
 ## Amendment log
 
 - *Pre-approval* — Resolved autonomously: (a) wire exactly the five the capstone path needs (`exp`/`log`/`sqrt`/`tanh`/`sigmoid`); `abs`/`sin`/`cos` deferred as trivial follow-ups; (b) reuse the spec-005 unary block and `tensor_unary` helper verbatim — no structural change; (c) extend the Phase-0 e2e with the softmax numerator now, deferring the divide-by-sum to specs 017/019.
+- *Implementation, verification* — Landed first try (the predicted "most mechanical" item — five enum values, five one-line builder methods, five names in the sema loop, five lowering branches, five interpreter switch arms). `ctest` **24/24** (`ZeroElementwiseTest` + the extended `test_phase0_e2e` softmax-numerator case). All 23 prior binaries unchanged. No surprises.

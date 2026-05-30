@@ -244,6 +244,13 @@ public:
     Value tensor_mean(Value x)   { return tensor_unary(OpCode::TENSOR_MEAN, x); }
     Value tensor_argmax(Value x) { return tensor_unary(OpCode::TENSOR_ARGMAX, x); }
 
+    // Spec 016: shape-preserving unary elementwise math.
+    Value tensor_exp(Value x)     { return tensor_unary(OpCode::TENSOR_EXP, x); }
+    Value tensor_log(Value x)     { return tensor_unary(OpCode::TENSOR_LOG, x); }
+    Value tensor_sqrt(Value x)    { return tensor_unary(OpCode::TENSOR_SQRT, x); }
+    Value tensor_tanh(Value x)    { return tensor_unary(OpCode::TENSOR_TANH, x); }
+    Value tensor_sigmoid(Value x) { return tensor_unary(OpCode::TENSOR_SIGMOID, x); }
+
 private:
     Function& fn_;
     uint32_t current_block_id_;

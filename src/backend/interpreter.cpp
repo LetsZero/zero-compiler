@@ -405,9 +405,14 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             break;
         }
 
-        // ─── Unary tensor ops (spec 005). Output shape = operand shape.
+        // ─── Unary tensor ops (specs 005, 016). Output shape = operand shape.
         case OpCode::TENSOR_NEG:
-        case OpCode::TENSOR_RELU: {
+        case OpCode::TENSOR_RELU:
+        case OpCode::TENSOR_EXP:
+        case OpCode::TENSOR_LOG:
+        case OpCode::TENSOR_SQRT:
+        case OpCode::TENSOR_TANH:
+        case OpCode::TENSOR_SIGMOID: {
             RuntimeValue x_v = get_value(instr.operands[0]);
             if (!x_v.is_tensor()) {
                 throw std::runtime_error("tensor unary op: non-tensor operand");
@@ -421,8 +426,13 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             zero::Status s;
             const char* op_name = "tensor_op";
             switch (instr.op) {
-                case OpCode::TENSOR_NEG:  s = zero::ops::neg(*x, *out);  op_name = "tensor_neg";  break;
-                case OpCode::TENSOR_RELU: s = zero::ops::relu(*x, *out); op_name = "tensor_relu"; break;
+                case OpCode::TENSOR_NEG:     s = zero::ops::neg(*x, *out);     op_name = "tensor_neg";     break;
+                case OpCode::TENSOR_RELU:    s = zero::ops::relu(*x, *out);    op_name = "tensor_relu";    break;
+                case OpCode::TENSOR_EXP:     s = zero::ops::exp(*x, *out);     op_name = "tensor_exp";     break;
+                case OpCode::TENSOR_LOG:     s = zero::ops::log(*x, *out);     op_name = "tensor_log";     break;
+                case OpCode::TENSOR_SQRT:    s = zero::ops::sqrt(*x, *out);    op_name = "tensor_sqrt";    break;
+                case OpCode::TENSOR_TANH:    s = zero::ops::tanh(*x, *out);    op_name = "tensor_tanh";    break;
+                case OpCode::TENSOR_SIGMOID: s = zero::ops::sigmoid(*x, *out); op_name = "tensor_sigmoid"; break;
                 default: break;  // unreachable
             }
             if (s.is_error()) throw_with_span(op_name, s, instr.span, sm_);

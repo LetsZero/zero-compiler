@@ -236,6 +236,15 @@ set_target_properties(test_nd_literals PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Elementwise math from source (spec 016).
+add_executable(test_elementwise
+    test_elementwise.cpp
+)
+target_link_libraries(test_elementwise PRIVATE zerobackend zerosema)
+set_target_properties(test_elementwise PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -274,4 +283,5 @@ add_test(NAME ZeroRuntimeDiagnosticsTest COMMAND test_runtime_diagnostics)
 add_test(NAME ZeroReductionsTest COMMAND test_reductions)
 add_test(NAME ZeroPhase0E2ETest COMMAND test_phase0_e2e)
 add_test(NAME ZeroNDLiteralsTest COMMAND test_nd_literals)
+add_test(NAME ZeroElementwiseTest COMMAND test_elementwise)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)
