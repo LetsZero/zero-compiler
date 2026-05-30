@@ -35,7 +35,7 @@ static std::vector<TestCase> tests;
 static int run_all_tests() {
     int passed = 0, failed = 0;
     for (const auto& t : tests) {
-        std::cout << "  Running " << t.name << "... ";
+        std::cout << "  Running " << t.name << "... " << std::flush;
         try {
             t.func();
             std::cout << "\033[32mPASS\033[0m\n";
@@ -173,5 +173,9 @@ TEST(user_fn_scalar_param) {
 
 int main() {
     std::cout << "=== Spec 006 — function-level tensor I/O ===\n";
-    return run_all_tests();
+    int rc = run_all_tests();
+    // Spec 013: deterministic teardown — release any held TensorPtr now,
+    // not during static destruction (which aborts on libstdc++).
+    captured = RuntimeValue{};
+    return rc;
 }
