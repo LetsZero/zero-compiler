@@ -106,6 +106,12 @@ enum class OpCode {
     // 2-D transpose: permute axes [1,0], then materialize contiguous.
     // Needed to hand-write weight gradients (x^T @ err) for matmul layers.
     TENSOR_TRANSPOSE,
+
+    // Heaviside step: 1.0 where x > 0, else 0.0. This is relu's derivative —
+    // needed to hand-write backprop through a relu. Computed in the interpreter
+    // (not a frozen-runtime op): activation math beyond the core set is the
+    // compiler/stdlib's job, never the runtime's.
+    TENSOR_STEP,
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -149,6 +155,7 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_TANH: return "tensor.tanh";
         case OpCode::TENSOR_SIGMOID: return "tensor.sigmoid";
         case OpCode::TENSOR_TRANSPOSE: return "tensor.transpose";
+        case OpCode::TENSOR_STEP: return "tensor.step";
         default: return "unknown";
     }
 }

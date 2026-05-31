@@ -69,6 +69,13 @@ trained with a hand-written weight gradient `grad_W = transpose(x) @ err`.
 `pred` converges to the target `[1, 3]`. Uses `matmul` + `transpose`; still no
 autograd.
 
+### 9. train_mlp.zero
+
+A **2-layer MLP with a fully hand-written backward pass** — backprop through
+`relu` via `step` (relu's derivative). `pred` converges to the target. This is
+the manual reference that autograd will need to reproduce. Uses `matmul`,
+`transpose`, `relu`, `step`.
+
 ## Language Features
 
 ```zero

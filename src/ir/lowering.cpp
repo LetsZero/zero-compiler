@@ -284,6 +284,7 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
                 if (e.callee == "tanh")    return builder.tensor_tanh(args[0]);
                 if (e.callee == "sigmoid") return builder.tensor_sigmoid(args[0]);
                 if (e.callee == "transpose") return builder.tensor_transpose(args[0]);
+                if (e.callee == "step")      return builder.tensor_step(args[0]);
             }
             // Spec 014: reductions on a single tensor argument.
             if (args.size() == 1 && args[0].type.is_tensor()) {

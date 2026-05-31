@@ -46,7 +46,7 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
   program's tensor results are observable from `zeroc` — not just from C++ tests.
 - **Tensors from source:**
   - literals: 1-D and 2-D (`tensor([[1,2],[3,4]])`), multi-line OK
-  - elementwise: `+ - * /`, unary `-`, `relu`, `exp`, `log`, `sqrt`, `tanh`, `sigmoid`
+  - elementwise: `+ - * /`, unary `-`, `relu`, `exp`, `log`, `sqrt`, `tanh`, `sigmoid`, `step` (relu derivative)
   - `matmul`, `transpose` (2-D; permute + contiguous)
   - reductions: `sum`, `mean`, `argmax` (full reduction → `[1]`)
   - tensor–scalar broadcast both directions, incl. `s - t` / `s / t` (`x * 2.0`, `1.0 - x`)

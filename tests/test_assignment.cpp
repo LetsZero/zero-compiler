@@ -286,6 +286,43 @@ TEST(tensor_accumulation_in_loop) {
     assert(near(d[0], 3.0f) && near(d[1], 6.0f));
 }
 
+// ── step (relu derivative) + 2-layer backprop ───────────────────────────
+
+TEST(step_correctness) {
+    run_ok("fn main() { capture(step(tensor([-1.0, 0.0, 2.0, -0.5, 3.0]))) }");
+    const float* d = cap_t();   // strict > 0; step(0) == 0
+    assert(near(d[0],0)&&near(d[1],0)&&near(d[2],1)&&near(d[3],0)&&near(d[4],1));
+}
+
+TEST(mlp_backprop_trains) {
+    // 2-layer relu MLP, fully hand-written backward pass (uses step for the
+    // relu gradient). pred should converge to the target 1.0. This is the
+    // manual reference autograd must reproduce.
+    run_ok(
+        "fn main() {\n"
+        "  let x = tensor([[1.0, 2.0]])\n"
+        "  let target = tensor([[1.0]])\n"
+        "  let w1 = tensor([[0.1, -0.5],[0.3, -0.5]])\n"
+        "  let w2 = tensor([[0.1],[0.2]])\n"
+        "  let lr = 0.05\n let steps = 400\n"
+        "  while steps > 0 {\n"
+        "    let hpre = matmul(x, w1)\n"
+        "    let h = relu(hpre)\n"
+        "    let o = matmul(h, w2)\n"
+        "    let d_o = o - target\n"
+        "    let grad_w2 = matmul(transpose(h), d_o)\n"
+        "    let d_h = matmul(d_o, transpose(w2))\n"
+        "    let d_hpre = d_h * step(hpre)\n"
+        "    let grad_w1 = matmul(transpose(x), d_hpre)\n"
+        "    w1 = w1 - lr * grad_w1\n"
+        "    w2 = w2 - lr * grad_w2\n"
+        "    steps = steps - 1\n"
+        "  }\n"
+        "  capture(matmul(relu(matmul(x, w1)), w2))\n"
+        "}");
+    assert(near(cap_t()[0], 1.0f, 1e-2f));
+}
+
 // ── non-mutated variables are unaffected (smoke) ─────────────────────────
 
 TEST(non_mutated_var_still_works) {

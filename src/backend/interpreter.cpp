@@ -527,6 +527,23 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             break;
         }
 
+        // ─── Heaviside step (relu's derivative): out[i] = x[i] > 0 ? 1 : 0.
+        // Not a runtime op — computed here. Shape-preserving.
+        case OpCode::TENSOR_STEP: {
+            RuntimeValue xv = get_value(instr.operands[0]);
+            if (!xv.is_tensor()) throw std::runtime_error("tensor_step: non-tensor operand");
+            const TensorPtr& x = xv.as_tensor();
+            int64_t shape_arr[zero::MAX_DIMS] = {0};
+            for (int8_t i = 0; i < x->ndim; ++i) shape_arr[i] = x->shape[i];
+            TensorPtr out = alloc_output_like(shape_arr, x->ndim);
+            const float* in = static_cast<const float*>(x->data);
+            float* od = static_cast<float*>(out->data);
+            const int64_t n = x->numel();
+            for (int64_t i = 0; i < n; ++i) od[i] = (in[i] > 0.0f) ? 1.0f : 0.0f;
+            result = RuntimeValue(std::move(out));
+            break;
+        }
+
         // ─── 2-D transpose. permute([1,0]) gives a strided view, which matmul/
         // reduce reject; contiguous() materialises it into a fresh F32 tensor.
         case OpCode::TENSOR_TRANSPOSE: {

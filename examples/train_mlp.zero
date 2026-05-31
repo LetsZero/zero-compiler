@@ -1,0 +1,52 @@
+// train_mlp.zero — a 2-layer MLP trained with HAND-WRITTEN backprop, in Zero.
+//
+// This is the manual reference that autograd must one day reproduce. The full
+// backward pass is written out by hand — including backprop through the relu
+// using `step` (relu's derivative). No autograd, no tape; just the ops.
+//
+//   forward:   h = relu(x @ W1);   o = h @ W2
+//   backward:  d_o     = o - target
+//              grad_W2 = h^T @ d_o
+//              d_h     = d_o @ W2^T
+//              d_hpre  = d_h * step(x @ W1)        // relu backward
+//              grad_W1 = x^T @ d_hpre
+//
+// W1's second column is negative, so hidden unit 2 starts (and stays) dead —
+// step() zeroes its gradient, so the net learns through the live unit alone.
+// pred converges to the target 1.0.
+//
+// Run:  zeroc examples/train_mlp.zero
+
+fn main() {
+    let x = tensor([[1.0, 2.0]])
+    let target = tensor([[1.0]])
+
+    let w1 = tensor([[0.1, -0.5],
+                     [0.3, -0.5]])
+    let w2 = tensor([[0.1],
+                     [0.2]])
+    let lr = 0.05
+    let steps = 400
+
+    while steps > 0 {
+        // forward
+        let hpre = matmul(x, w1)                     // [1,2] pre-activations
+        let h = relu(hpre)                           // [1,2]
+        let o = matmul(h, w2)                        // [1,1] prediction
+
+        // backward (squared error; the factor 2 is folded into lr)
+        let d_o = o - target                         // [1,1]
+        let grad_w2 = matmul(transpose(h), d_o)      // [2,1]
+        let d_h = matmul(d_o, transpose(w2))         // [1,2]
+        let d_hpre = d_h * step(hpre)                // [1,2] relu backward
+        let grad_w1 = matmul(transpose(x), d_hpre)   // [2,2]
+
+        // SGD update
+        w1 = w1 - lr * grad_w1
+        w2 = w2 - lr * grad_w2
+        steps = steps - 1
+    }
+
+    print("final pred (target 1.0):", matmul(relu(matmul(x, w1)), w2))
+    return 0
+}

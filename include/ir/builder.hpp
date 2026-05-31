@@ -254,6 +254,9 @@ public:
     // 2-D transpose (permute [1,0] + contiguous, done in the interpreter).
     Value tensor_transpose(Value x) { return tensor_unary(OpCode::TENSOR_TRANSPOSE, x); }
 
+    // Heaviside step (relu's derivative): 1.0 where x > 0, else 0.0.
+    Value tensor_step(Value x) { return tensor_unary(OpCode::TENSOR_STEP, x); }
+
 private:
     Function& fn_;
     uint32_t current_block_id_;
