@@ -175,6 +175,47 @@ TEST(equality_is_not_assignment) {
     assert(!parse_has_error("fn main() { let x = 1\n if x == 1 { return 1 }\n return 0 }"));
 }
 
+// ── training: gradient descent actually converges ───────────────────────
+
+TEST(gradient_descent_scalar_converges) {
+    // One-parameter model w*x fit to target=6 with x=2 -> w should reach 3.
+    // Proves the language can express and run iterative optimisation.
+    run_ok(
+        "fn main() {\n"
+        "  let x = 2.0\n let target = 6.0\n let w = 0.0\n let lr = 0.05\n"
+        "  let steps = 50\n"
+        "  while steps > 0 {\n"
+        "    let pred = w * x\n let err = pred - target\n"
+        "    let grad = 2.0 * err * x\n"
+        "    w = w - lr * grad\n"
+        "    steps = steps - 1\n"
+        "  }\n"
+        "  capture(w)\n"
+        "}");
+    assert(captured.is_float());
+    assert(std::fabs(captured.as_float() - 3.0) < 1e-3);
+}
+
+TEST(gradient_descent_features_converge) {
+    // 3-feature dot-product regression; w should approach [1, 2, 3].
+    run_ok(
+        "fn main() {\n"
+        "  let x = tensor([[1.0, 2.0, 3.0]])\n"
+        "  let target = 14.0\n"
+        "  let w = tensor([[0.0, 0.0, 0.0]])\n"
+        "  let lr = 0.01\n let steps = 300\n"
+        "  while steps > 0 {\n"
+        "    let pred = sum(x * w)\n let err = pred - target\n"
+        "    let grad = (x * err) * 2.0\n"
+        "    w = w - lr * grad\n"
+        "    steps = steps - 1\n"
+        "  }\n"
+        "  capture(w)\n"
+        "}");
+    const float* d = cap_t();
+    assert(near(d[0], 1.0f, 1e-2f) && near(d[1], 2.0f, 1e-2f) && near(d[2], 3.0f, 1e-2f));
+}
+
 // ── non-mutated variables are unaffected (smoke) ─────────────────────────
 
 TEST(non_mutated_var_still_works) {

@@ -1,0 +1,35 @@
+// train_features.zero — multi-feature linear regression, trained in Zero.
+//
+// A step up from train_linear.zero: the parameter is now a vector. The model
+// is a dot product pred = sum(x * w), and the gradient grad_w = 2*(pred-t)*x
+// is hand-written. Trains with only the ops that already exist — elementwise
+// mul, the `sum` reduction, scalar broadcast, and assignment. No matmul, no
+// transpose, no autograd.
+//
+// Run:  zeroc examples/train_features.zero
+// w converges toward [1, 2, 3] (the target weights).
+//
+// NOTE on operand order: the runtime broadcasts a scalar only on the RIGHT
+// (`tensor * scalar`), and a binary op's output takes the LEFT operand's shape.
+// So the gradient is written `(x * err) * 2.0`, not `2.0 * err * x` — keeping
+// the [1,3] tensor on the left so the result stays [1,3].
+
+fn main() {
+    let x = tensor([[1.0, 2.0, 3.0]])
+    let target = 14.0                  // x . [1,2,3] = 1 + 4 + 9 = 14
+
+    let w = tensor([[0.0, 0.0, 0.0]])  // parameter vector (mutated)
+    let lr = 0.01
+    let steps = 100
+
+    while steps > 0 {
+        let pred = sum(x * w)          // [1] dot product
+        let err = pred - target        // [1]
+        let grad = (x * err) * 2.0     // [1,3]  d(loss)/dw
+        w = w - lr * grad              // SGD update
+        steps = steps - 1
+    }
+
+    print("learned w (target [1, 2, 3]):", w)
+    return 0
+}

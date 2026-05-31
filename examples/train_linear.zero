@@ -1,0 +1,29 @@
+// train_linear.zero — gradient descent, written in Zero.
+//
+// Proves the language can *train*: a one-parameter linear model w * x learns
+// to fit a target by minimising squared error. No autograd, no runtime magic —
+// just scalar math, a `while` loop, and variable assignment. The gradient is
+// hand-written (d/dw (w*x - target)^2 = 2*(w*x - target)*x).
+//
+// Run:  zeroc examples/train_linear.zero
+// w climbs 0 -> 3.0 (since target/x = 6/2 = 3).
+
+fn main() {
+    let x = 2.0
+    let target = 6.0
+
+    let w = 0.0          // parameter (mutated each step)
+    let lr = 0.05        // learning rate
+    let steps = 30
+
+    while steps > 0 {
+        let pred = w * x
+        let err = pred - target
+        let grad = 2.0 * err * x     // d(loss)/dw
+        w = w - lr * grad            // SGD update
+        steps = steps - 1
+    }
+
+    print("learned w (target 3.0):", w)
+    return 0
+}

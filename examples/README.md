@@ -50,6 +50,18 @@ Error handling showcase with "Frame & Focus" diagnostics.
 
 Advanced logging with semantic colors and ANSI formatting.
 
+### 6. train_linear.zero
+
+**Gradient descent, in Zero.** A one-parameter model `w * x` learns to fit a
+target by minimising squared error — hand-written gradient, `while` loop,
+variable assignment. `w` converges 0 → 3.0. No autograd, no runtime magic.
+
+### 7. train_features.zero
+
+Multi-feature linear regression (`pred = sum(x * w)`); the parameter is now a
+vector and `w` converges toward `[1, 2, 3]`. Trains with only existing ops
+(elementwise mul, `sum`, scalar broadcast, assignment) — no `matmul`/transpose.
+
 ## Language Features
 
 ```zero
