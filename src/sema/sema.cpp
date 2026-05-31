@@ -184,7 +184,7 @@ void Sema::register_builtins() {
     // All dispatched to TENSOR_* at lowering when args are tensors; return
     // a tensor.
     for (const char* name : {"sum", "mean", "argmax", "matmul",
-                             "exp", "log", "sqrt", "tanh", "sigmoid"}) {
+                             "exp", "log", "sqrt", "tanh", "sigmoid", "transpose"}) {
         FnSignature sig;
         sig.name = name;
         sig.return_type = types::Type::make_tensor();
@@ -523,6 +523,11 @@ std::optional<Sema::Shape> Sema::infer_shape(ast::Expr& expr) {
                  || e.callee == "tanh" || e.callee == "sigmoid" || e.callee == "relu")
                 && e.args.size() == 1) {
                 return infer_shape(*e.args[0]);   // shape-preserving
+            }
+            if (e.callee == "transpose" && e.args.size() == 1) {
+                auto a = infer_shape(*e.args[0]);
+                if (a && a->size() == 2) return Shape{ (*a)[1], (*a)[0] };
+                return a;   // rank<2: identity; unknown: unknown
             }
             if (e.callee == "matmul" && e.args.size() == 2) {
                 auto a = infer_shape(*e.args[0]);

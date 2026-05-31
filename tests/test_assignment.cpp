@@ -216,6 +216,38 @@ TEST(gradient_descent_features_converge) {
     assert(near(d[0], 1.0f, 1e-2f) && near(d[1], 2.0f, 1e-2f) && near(d[2], 3.0f, 1e-2f));
 }
 
+// ── transpose + a matmul-based layer trains ──────────────────────────────
+
+TEST(transpose_2d) {
+    run_ok("fn main() { capture(transpose(tensor([[1.0, 2.0, 3.0],[4.0, 5.0, 6.0]]))) }");
+    const auto& t = captured.as_tensor();
+    assert(t->ndim == 2 && t->shape[0] == 3 && t->shape[1] == 2);
+    const float* d = cap_t();   // [[1,4],[2,5],[3,6]] row-major
+    assert(near(d[0],1)&&near(d[1],4)&&near(d[2],2)&&near(d[3],5)&&near(d[4],3)&&near(d[5],6));
+}
+
+TEST(matmul_layer_trains) {
+    // x[1,2] @ W[2,2] -> pred[1,2]; weight gradient is transpose(x) @ err.
+    // pred should converge to the target [1, 3].
+    run_ok(
+        "fn main() {\n"
+        "  let x = tensor([[1.0, 2.0]])\n"
+        "  let target = tensor([[1.0, 3.0]])\n"
+        "  let w = tensor([[0.0, 0.0],[0.0, 0.0]])\n"
+        "  let lr = 0.05\n let steps = 300\n"
+        "  while steps > 0 {\n"
+        "    let pred = matmul(x, w)\n"
+        "    let err = pred - target\n"
+        "    let grad = matmul(transpose(x), err)\n"
+        "    w = w - lr * grad\n"
+        "    steps = steps - 1\n"
+        "  }\n"
+        "  capture(matmul(x, w))\n"
+        "}");
+    const float* d = cap_t();
+    assert(near(d[0], 1.0f, 1e-2f) && near(d[1], 3.0f, 1e-2f));
+}
+
 // ── non-mutated variables are unaffected (smoke) ─────────────────────────
 
 TEST(non_mutated_var_still_works) {

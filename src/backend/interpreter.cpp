@@ -11,6 +11,8 @@
 #include <zero/ops/elementwise.hpp>
 #include <zero/ops/matmul.hpp>
 #include <zero/ops/reduce.hpp>
+#include <zero/ops/reshape.hpp>   // permute (transpose view)
+#include <zero/ops/layout.hpp>    // contiguous (materialize view)
 
 #include <iostream>
 #include <sstream>
@@ -521,6 +523,30 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
                 default: break;  // unreachable
             }
             if (s.is_error()) throw_with_span(op_name, s, instr.span, sm_);
+            result = RuntimeValue(std::move(out));
+            break;
+        }
+
+        // ─── 2-D transpose. permute([1,0]) gives a strided view, which matmul/
+        // reduce reject; contiguous() materialises it into a fresh F32 tensor.
+        case OpCode::TENSOR_TRANSPOSE: {
+            RuntimeValue xv = get_value(instr.operands[0]);
+            if (!xv.is_tensor()) throw std::runtime_error("tensor_transpose: non-tensor operand");
+            const TensorPtr& x = xv.as_tensor();
+
+            if (x->ndim != 2) {
+                // Rank-0/1: transpose is a no-op. Rank>2 is unsupported (the
+                // language only produces 1-D/2-D tensors today).
+                if (x->ndim < 2) { result = xv; break; }
+                throw std::runtime_error("tensor_transpose: only rank-2 tensors supported");
+            }
+
+            int8_t perm[2] = {1, 0};
+            zero::Tensor view = zero::ops::permute(*x, perm);   // shares x's buffer
+            int64_t out_shape[2] = { x->shape[1], x->shape[0] };
+            TensorPtr out = alloc_output_like(out_shape, 2);
+            zero::Status s = zero::ops::contiguous(view, *out);
+            if (s.is_error()) throw_with_span("tensor_transpose", s, instr.span, sm_);
             result = RuntimeValue(std::move(out));
             break;
         }

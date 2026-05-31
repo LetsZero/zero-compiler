@@ -62,6 +62,13 @@ Multi-feature linear regression (`pred = sum(x * w)`); the parameter is now a
 vector and `w` converges toward `[1, 2, 3]`. Trains with only existing ops
 (elementwise mul, `sum`, scalar broadcast, assignment) — no `matmul`/transpose.
 
+### 8. train_layer.zero
+
+A matmul-based linear layer with multiple outputs (`pred = matmul(x, W)`),
+trained with a hand-written weight gradient `grad_W = transpose(x) @ err`.
+`pred` converges to the target `[1, 3]`. Uses `matmul` + `transpose`; still no
+autograd.
+
 ## Language Features
 
 ```zero

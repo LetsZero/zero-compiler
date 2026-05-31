@@ -102,6 +102,10 @@ enum class OpCode {
     TENSOR_SQRT,    // result = sqrt(op0)
     TENSOR_TANH,    // result = tanh(op0)
     TENSOR_SIGMOID, // result = sigmoid(op0)
+
+    // 2-D transpose: permute axes [1,0], then materialize contiguous.
+    // Needed to hand-write weight gradients (x^T @ err) for matmul layers.
+    TENSOR_TRANSPOSE,
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -144,6 +148,7 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_SQRT: return "tensor.sqrt";
         case OpCode::TENSOR_TANH: return "tensor.tanh";
         case OpCode::TENSOR_SIGMOID: return "tensor.sigmoid";
+        case OpCode::TENSOR_TRANSPOSE: return "tensor.transpose";
         default: return "unknown";
     }
 }

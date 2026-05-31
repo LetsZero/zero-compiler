@@ -1,0 +1,30 @@
+// train_layer.zero — a matmul-based linear layer, trained in Zero.
+//
+// The step up from train_features.zero: a real linear layer with multiple
+// outputs, pred = matmul(x, W). The weight gradient of the squared error is
+// grad_W = x^T @ err, so this needs `transpose` (and matmul) — which is why
+// transpose was added. Still no autograd: the gradient is hand-written.
+//
+// Run:  zeroc examples/train_layer.zero
+// pred converges to the target [1, 3].
+
+fn main() {
+    let x = tensor([[1.0, 2.0]])          // input  [1, 2]
+    let target = tensor([[1.0, 3.0]])     // desired output [1, 2]
+
+    let w = tensor([[0.0, 0.0],
+                    [0.0, 0.0]])          // weights [2, 2] (mutated)
+    let lr = 0.05
+    let steps = 200
+
+    while steps > 0 {
+        let pred = matmul(x, w)               // [1, 2]
+        let err = pred - target               // [1, 2]
+        let grad = matmul(transpose(x), err)  // [2,1] @ [1,2] = [2,2]
+        w = w - lr * grad                     // SGD update
+        steps = steps - 1
+    }
+
+    print("final pred (target [1, 3]):", matmul(x, w))
+    return 0
+}

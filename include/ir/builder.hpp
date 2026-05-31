@@ -251,6 +251,9 @@ public:
     Value tensor_tanh(Value x)    { return tensor_unary(OpCode::TENSOR_TANH, x); }
     Value tensor_sigmoid(Value x) { return tensor_unary(OpCode::TENSOR_SIGMOID, x); }
 
+    // 2-D transpose (permute [1,0] + contiguous, done in the interpreter).
+    Value tensor_transpose(Value x) { return tensor_unary(OpCode::TENSOR_TRANSPOSE, x); }
+
 private:
     Function& fn_;
     uint32_t current_block_id_;
