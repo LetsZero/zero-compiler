@@ -1,11 +1,12 @@
 # Phase 0 — Robustness Findings (edge-case audit)
 
-> **Status: ALL FIXED.** Produced by an adversarial pass over the Phase-0
-> pipeline (parser → sema → lowering → interpreter → runtime boundary), hunting
-> for crashes, wrong results, and missing diagnostics. All eight findings below
-> are now fixed and locked in by `tests/test_robustness.cpp` (13 cases). Suite is
-> green at **28/28** (was 27/27 + 1 new regression binary); the MLP capstone
-> numerics are unchanged.
+> **Status: ALL FIXED.** Produced by adversarial passes over the pipeline
+> (parser → sema → lowering → interpreter → runtime boundary), hunting for
+> crashes, wrong results, and missing diagnostics. Findings #1–#8 came from the
+> first pass (post-capstone) and are locked in by `tests/test_robustness.cpp`;
+> #9–#10 came from a second pass before starting autograd, over the new
+> assignment/mutation/transpose surface, and are locked in by
+> `tests/test_assignment.cpp`. Suite green at **29/29**.
 
 ## TL;DR
 
@@ -28,6 +29,25 @@ is built on top of them.
 | 6 | 🟡 Diagnostic | matmul with rank-<2 operand gives a misleading message | `interpreter.cpp` | ✅ rank pre-validation, clear message |
 | 7 | ⚪ Minor | Integer literal overflow silently becomes 0 | `parser.cpp` | ✅ checks `from_chars` ec, emits diagnostic |
 | 8 | ⚪ Minor | Tensor used as `if`/`while` condition silently coerces to 0 | `interpreter.cpp`, `sema.cpp` | ✅ sema rejects non-scalar condition |
+
+### Second pass — pre-autograd audit (assignment / mutation / transpose surface)
+
+After adding assignment, memory cells, and `transpose`, a second adversarial
+sweep over the new surface found two more (both fixed; locked in by
+`tests/test_assignment.cpp`):
+
+| # | Severity | One-line | Site | Fix |
+|---|----------|----------|------|-----|
+| 9 | 🟠 Correctness | Shadowing leaked: an inner-scope `let` corrupted the outer variable after the block | `lowering.cpp` | ✅ lowering now snapshots/restores `symbols_` per block (matches sema scoping) |
+| 10 | ⚪ Minor | Comparing tensors (`if t > 0`) silently coerced the tensor to 0 (took else) | `sema.cpp` | ✅ sema rejects comparisons with a tensor operand |
+
+Verified *correct* on this pass (no fix needed): parameter mutation is isolated
+(pass-by-value; a reassigned param does not affect the caller), reassigning a
+variable to an incompatible type is caught, out-of-scope variable use is caught,
+transpose (1-D identity, round-trip, `[1,1]`, feeding matmul), scalar-on-left
+ops on 2-D, operator precedence, nested-loop mutation, tensor/matmul
+accumulation across loop iterations (the gradient-accumulation pattern), and
+nested-function calls returning tensors through cells.
 
 > Regression coverage: `tests/test_robustness.cpp` (`ZeroRobustnessTest`).
 

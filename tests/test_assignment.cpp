@@ -248,6 +248,44 @@ TEST(matmul_layer_trains) {
     assert(near(d[0], 1.0f, 1e-2f) && near(d[1], 3.0f, 1e-2f));
 }
 
+// ── block scoping: a shadowing `let` must not leak outward ───────────────
+
+TEST(shadowing_does_not_leak) {
+    // Inner `let x` in the if-body must not corrupt the outer x. (Lowering
+    // used a flat symbol table; it now snapshots/restores per block.)
+    run_ok("fn main() { let x = 10\n if 1 > 0 { let x = 20 }\n capture(x) }");
+    assert(cap_int() == 10);
+}
+
+TEST(shadowing_with_inner_mutation_does_not_leak) {
+    run_ok("fn main() { let x = 10\n if 1 > 0 { let x = 0\n x = x + 5 }\n capture(x) }");
+    assert(cap_int() == 10);
+}
+
+// ── tensor comparisons are rejected (no silent coercion to 0) ────────────
+
+TEST(tensor_comparison_is_sema_error) {
+    assert(sema_has_error("fn main() { let x = tensor([1.0])\n if x > 0.0 { return 1 }\n return 0 }"));
+    assert(sema_has_error("fn main() { let a = tensor([1.0])\n let b = tensor([1.0])\n if a == b { return 1 }\n return 0 }"));
+}
+
+// ── accumulation across loop iterations (the gradient-accum pattern) ─────
+
+TEST(tensor_accumulation_in_loop) {
+    run_ok(
+        "fn main() {\n"
+        "  let acc = tensor([0.0, 0.0])\n"
+        "  let i = 0\n"
+        "  while i < 3 {\n"
+        "    acc = acc + tensor([1.0, 2.0])\n"
+        "    i = i + 1\n"
+        "  }\n"
+        "  capture(acc)\n"
+        "}");
+    const float* d = cap_t();
+    assert(near(d[0], 3.0f) && near(d[1], 6.0f));
+}
+
 // ── non-mutated variables are unaffected (smoke) ─────────────────────────
 
 TEST(non_mutated_var_still_works) {

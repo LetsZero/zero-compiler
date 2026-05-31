@@ -185,9 +185,14 @@ void Lowering::lower_stmt(IRBuilder& builder, ast::Stmt& stmt) {
             lower_while(builder, s);
         }
         else if constexpr (std::is_same_v<T, ast::Block>) {
+            // Block-scoped names: snapshot the symbol table and restore it
+            // afterward so a `let` inside the block (including one that
+            // shadows an outer variable) does not leak its binding outward.
+            auto saved = symbols_;
             for (auto& inner : s.stmts) {
                 lower_stmt(builder, *inner);
             }
+            symbols_ = std::move(saved);
         }
     }, stmt.data);
 }
@@ -338,17 +343,21 @@ void Lowering::lower_if(IRBuilder& builder, ast::IfStmt& if_stmt) {
         builder.cond_br(cond, then_id, else_id);
 
         builder.set_insert_point(else_id);
+        auto saved_else = symbols_;
         for (auto& stmt : if_stmt.else_branch) {
             lower_stmt(builder, *stmt);
         }
+        symbols_ = std::move(saved_else);   // else body is its own scope
         builder.set_current_span(if_stmt.span);
         builder.br(merge_id);
     }
 
     builder.set_insert_point(then_id);
+    auto saved_then = symbols_;
     for (auto& stmt : if_stmt.then_branch) {
         lower_stmt(builder, *stmt);
     }
+    symbols_ = std::move(saved_then);        // then body is its own scope
     builder.set_current_span(if_stmt.span);
     builder.br(merge_id);
 
@@ -372,9 +381,11 @@ void Lowering::lower_while(IRBuilder& builder, ast::WhileStmt& while_stmt) {
     builder.cond_br(cond, body_id, end_id);
 
     builder.set_insert_point(body_id);
+    auto saved_body = symbols_;
     for (auto& stmt : while_stmt.body) {
         lower_stmt(builder, *stmt);
     }
+    symbols_ = std::move(saved_body);        // loop body is its own scope
     builder.set_current_span(while_stmt.span);
     builder.br(cond_id);
 

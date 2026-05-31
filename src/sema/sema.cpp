@@ -386,6 +386,21 @@ types::Type Sema::check_expr(ast::Expr& expr) {
         else if constexpr (std::is_same_v<T, ast::BinaryExpr>) {
             types::Type left = e.left ? check_expr(*e.left) : types::Type::make_unknown();
             types::Type right = e.right ? check_expr(*e.right) : types::Type::make_unknown();
+            // Comparisons on tensors are meaningless here (no element-wise
+            // predicate) and would otherwise lower to a scalar compare that
+            // silently coerces the tensor to 0. Reject them outright.
+            switch (e.op) {
+                case ast::BinOp::EQ: case ast::BinOp::NE:
+                case ast::BinOp::LT: case ast::BinOp::LE:
+                case ast::BinOp::GT: case ast::BinOp::GE:
+                    if (left.is_tensor() || right.is_tensor()) {
+                        error(ErrorKind::TYPE_MISMATCH,
+                              "cannot compare tensors with '" +
+                              std::string(ast::binop_str(e.op)) + "'", e.span);
+                    }
+                    break;
+                default: break;
+            }
             return types::binary_result_type(left, right);
         }
         else if constexpr (std::is_same_v<T, ast::UnaryExpr>) {
