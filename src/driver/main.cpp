@@ -57,6 +57,25 @@ std::string format_tensor(const zero::Tensor& t) {
     return os.str();
 }
 
+// Render any RuntimeValue (recurses into struct fields).
+std::string format_value(const zero::backend::RuntimeValue& v) {
+    if (v.is_int())    return std::to_string(v.as_int());
+    if (v.is_float())  { std::ostringstream os; os << v.as_float(); return os.str(); }
+    if (v.is_str())    return v.as_str();
+    if (v.is_tensor()) return format_tensor(*v.as_tensor());
+    if (v.is_struct()) {
+        std::ostringstream os;
+        os << "{ ";
+        const auto& sv = *v.as_struct();
+        for (size_t i = 0; i < sv.fields.size(); ++i) {
+            os << (i ? ", " : "") << format_value(sv.fields[i]);
+        }
+        os << " }";
+        return os.str();
+    }
+    return "";
+}
+
 void print_help() {
     std::cout << "Zero Compiler v0.1.0 (MPP)\n\n";
     std::cout << "Usage:\n";
@@ -140,15 +159,7 @@ int compile_and_run(const std::string& filename, bool dump_ir) {
     // Register print function
     interp.register_external("print", [](const std::vector<backend::RuntimeValue>& args) {
         for (const auto& arg : args) {
-            if (arg.is_int()) {
-                std::cout << arg.as_int();
-            } else if (arg.is_float()) {
-                std::cout << arg.as_float();
-            } else if (arg.is_str()) {
-                std::cout << arg.as_str();
-            } else if (arg.is_tensor()) {
-                std::cout << format_tensor(*arg.as_tensor());
-            }
+            std::cout << format_value(arg);
         }
         std::cout << "\n";
         return backend::RuntimeValue{};

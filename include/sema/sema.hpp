@@ -90,6 +90,7 @@ public:
         errors_.clear();
         scopes_.clear();
         functions_.clear();
+        structs_.clear();
         var_shapes_.clear();
     }
 
@@ -99,6 +100,11 @@ private:
     
     // Function signatures
     std::unordered_map<std::string, FnSignature> functions_;
+
+    // Struct definitions: name -> ordered (field name, field type) pairs.
+    // Construction is positional, matching this order.
+    std::unordered_map<std::string,
+        std::vector<std::pair<std::string, types::Type>>> structs_;
     
     // Current function return type (for checking return statements)
     types::Type current_return_type_;
@@ -126,6 +132,7 @@ private:
     // ─────────────────────────────────────────────────────────────────────
     
     void collect_functions(ast::Program& prog);
+    void collect_structs(ast::Program& prog);
     void register_builtins();
     void check_fn(ast::FnDecl& fn);
     void check_stmt(ast::Stmt& stmt);

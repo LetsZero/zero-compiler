@@ -166,6 +166,7 @@ Token Lexer::scan_token() {
         case '[': return make_token(TokenType::LBRACKET);
         case ']': return make_token(TokenType::RBRACKET);
         case ',': return make_token(TokenType::COMMA);
+        case '.': return make_token(TokenType::DOT);
         case ':': return make_token(TokenType::COLON);
         case ';': return make_token(TokenType::SEMICOLON);
         case '\n': return make_token(TokenType::NEWLINE);
@@ -228,6 +229,8 @@ TokenType Lexer::identifier_type() {
             return check_keyword(1, 2, "et", TokenType::LET);
         case 'r':
             return check_keyword(1, 5, "eturn", TokenType::RETURN);
+        case 's':
+            return check_keyword(1, 5, "truct", TokenType::STRUCT);
         case 't':
             return check_keyword(1, 5, "ensor", TokenType::TENSOR);
         case 'u':

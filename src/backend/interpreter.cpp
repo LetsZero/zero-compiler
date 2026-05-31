@@ -633,10 +633,31 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             break;
         }
 
+        // ─── Struct construction / field access.
+        case OpCode::STRUCT_NEW: {
+            auto sv = std::make_shared<StructVal>();
+            sv->fields.reserve(instr.operands.size());
+            for (const auto& op : instr.operands) {
+                sv->fields.push_back(get_value(op));
+            }
+            result = RuntimeValue(std::move(sv));
+            break;
+        }
+
+        case OpCode::STRUCT_GET: {
+            RuntimeValue obj = get_value(instr.operands[0]);
+            if (!obj.is_struct()) throw std::runtime_error("struct_get: non-struct operand");
+            const StructPtr& sv = obj.as_struct();
+            const size_t idx = static_cast<size_t>(instr.imm_int);
+            if (idx >= sv->fields.size()) throw std::runtime_error("struct_get: field index out of range");
+            result = sv->fields[idx];
+            break;
+        }
+
         default:
             break;
     }
-    
+
     // Store result
     if (instr.result.valid()) {
         set_value(instr.result, result);

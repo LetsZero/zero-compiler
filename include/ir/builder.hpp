@@ -257,6 +257,31 @@ public:
     // Heaviside step (relu's derivative): 1.0 where x > 0, else 0.0.
     Value tensor_step(Value x) { return tensor_unary(OpCode::TENSOR_STEP, x); }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Structs
+    // ─────────────────────────────────────────────────────────────────────
+
+    // Build a struct value from field values (in declaration order).
+    Value struct_new(const std::vector<Value>& fields, types::Type struct_type) {
+        Instruction instr;
+        instr.op = OpCode::STRUCT_NEW;
+        instr.result = fn_.new_value(struct_type);
+        instr.operands = fields;
+        emit(instr);
+        return instr.result;
+    }
+
+    // Extract field #index from a struct value.
+    Value struct_get(Value object, int64_t index, types::Type field_type) {
+        Instruction instr;
+        instr.op = OpCode::STRUCT_GET;
+        instr.result = fn_.new_value(field_type);
+        instr.operands = {object};
+        instr.imm_int = index;
+        emit(instr);
+        return instr.result;
+    }
+
 private:
     Function& fn_;
     uint32_t current_block_id_;

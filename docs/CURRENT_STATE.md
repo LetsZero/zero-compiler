@@ -6,7 +6,7 @@
 
 **As of:** Phase 0 complete (spec 019) + robustness hardening + first Phase-1
 substrate (assignment, CLI tensor output). CI green on Linux + macOS,
-**29/29** tests.
+**30/30** tests.
 
 ---
 
@@ -20,8 +20,11 @@ primitive. The language can express and execute a real forward pass.
 
 What it is: a **tree-walking interpreter** for a small ML-native language,
 targeting the frozen Core Runtime **v1.4.0**.
-What it is **not** yet: no autograd (can't train), no LLVM/native codegen
-(interpreter only), no GPU.
+It can also **train** models with *hand-written* backward passes (see the
+`examples/train_*.zero` — scalar/feature regression, a matmul layer, and a
+2-layer MLP with manual backprop). What it is **not** yet: no **autograd**
+(gradients are hand-written today), no LLVM/native codegen (interpreter only),
+no GPU.
 
 ---
 
@@ -37,6 +40,13 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
 - **Interpreter:** executes against the frozen runtime; per-frame value storage
   (recursion-safe); `Status` errors surfaced as source-spanned `RuntimeError`
   diagnostics.
+- **Structs:** `struct Name { f: tensor, ... }`; positional construction
+  `Name(a, b)`; field read `p.f`; struct-typed variables, params, and returns;
+  structs in mutable cells (reassign in a loop). Sema checks field count, field
+  names, and field access on non-structs. Field *mutation* (`p.f = x`) is not in
+  yet — rebuild the struct. Interpreter represents a struct as an ordered list
+  of field values; the runtime's `StructLayout`/`StructData` is reserved for the
+  future codegen backend.
 - **Variable assignment / mutation (`x = expr`):** reassign declared variables;
   makes `while` loops useful (the condition sees updated state). Mutated
   variables lower to memory cells (alloca/load/store) so updates survive across
@@ -58,12 +68,14 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
   cleaner diagnostics for scalar–tensor ops, matmul rank errors, integer
   overflow, and non-scalar conditions. All locked in by `tests/test_robustness.cpp`
   (`ZeroRobustnessTest`, 13 cases). Full writeup: [PHASE0_ROBUSTNESS_FINDINGS.md](PHASE0_ROBUSTNESS_FINDINGS.md).
-- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 29 test binaries
+- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 30 test binaries
   (ctest auto-discovers registered tests — no per-test wiring needed).
 
 ## What does NOT exist yet (the honest gaps)
 
-- **Autograd / training.** Forward pass only. This is the Phase-1 headline.
+- **Autograd.** Training works only with *hand-written* gradients today (the
+  `train_*.zero` examples). Automatic differentiation (runtime-tape) is the
+  Phase-1 headline and is not built yet.
 - **LLVM / native codegen.** Tree-walking interpreter only — not fast, not deployable.
 - **GPU / MLIR.**
 - **Multi-dtype compute.** F32 only (the runtime's fp8/bf16 enums don't compute).
@@ -88,7 +100,7 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
 1. **Read, in order:** [CLAUDE.md](../CLAUDE.md) (inviolable rules), this file,
    [ROADMAP.md](ROADMAP.md), [DEFERRED.md](DEFERRED.md).
 2. **Build & test:** `cmake -B build && cmake --build build --parallel && ctest --test-dir build`
-   (expect 29/29). The submodule must be initialised:
+   (expect 30/30). The submodule must be initialised:
    `git submodule update --init --recursive`.
 3. **Workflow:** spec-driven. Every change starts with an approved
    `docs/specs/NNN-*.md` (template in `docs/specs/_TEMPLATE.md`); tests written

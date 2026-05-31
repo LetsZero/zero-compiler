@@ -91,6 +91,7 @@ private:
     
     // Top-level
     ast::FnDecl parse_fn_decl();
+    ast::StructDecl parse_struct_decl();
     std::vector<ast::Param> parse_params();
     ast::Type parse_type();
     

@@ -291,6 +291,15 @@ set_target_properties(test_assignment PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Structs: declaration, construction, field access (first slice).
+add_executable(test_struct
+    test_struct.cpp
+)
+target_link_libraries(test_struct PRIVATE zerobackend zerosema)
+set_target_properties(test_struct PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -336,3 +345,4 @@ add_test(NAME ZeroMultilineTest COMMAND test_multiline)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)
 add_test(NAME ZeroRobustnessTest COMMAND test_robustness)
 add_test(NAME ZeroAssignmentTest COMMAND test_assignment)
+add_test(NAME ZeroStructTest COMMAND test_struct)

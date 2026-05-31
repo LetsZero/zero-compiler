@@ -15,12 +15,13 @@ namespace sema {
 // Helper: Convert ast::TypeKind to types::Type
 // ─────────────────────────────────────────────────────────────────────────────
 
-static types::Type ast_to_types(ast::TypeKind kind) {
-    switch (kind) {
+static types::Type ast_to_types(const ast::Type& t) {
+    switch (t.kind) {
         case ast::TypeKind::INT: return types::Type::make_int();
         case ast::TypeKind::FLOAT: return types::Type::make_float();
         case ast::TypeKind::VOID: return types::Type::make_void();
         case ast::TypeKind::TENSOR: return types::Type::make_tensor();
+        case ast::TypeKind::STRUCT: return types::Type::make_struct(t.name);
         default: return types::Type::make_unknown();
     }
 }
@@ -109,13 +110,30 @@ void Sema::error(ErrorKind kind, const std::string& msg, source::Span span) {
 void Sema::analyze(ast::Program& prog) {
     // Register built-in functions
     register_builtins();
-    
-    // First pass: collect all function signatures
+
+    // First pass: collect struct layouts and function signatures (so bodies
+    // can reference any struct or function regardless of declaration order).
+    collect_structs(prog);
     collect_functions(prog);
-    
+
     // Second pass: check each function body
     for (auto& fn : prog.functions) {
         check_fn(fn);
+    }
+}
+
+void Sema::collect_structs(ast::Program& prog) {
+    for (auto& sd : prog.structs) {
+        if (structs_.find(sd.name) != structs_.end()) {
+            error(ErrorKind::DUPLICATE_DEFINITION,
+                  "Struct '" + sd.name + "' already defined", sd.span);
+            continue;
+        }
+        std::vector<std::pair<std::string, types::Type>> fields;
+        for (const auto& f : sd.fields) {
+            fields.emplace_back(f.name, ast_to_types(f.type));
+        }
+        structs_[sd.name] = std::move(fields);
     }
 }
 
@@ -125,11 +143,11 @@ void Sema::collect_functions(ast::Program& prog) {
         sig.name = fn.name;
         
         for (const auto& param : fn.params) {
-            sig.param_types.push_back(ast_to_types(param.type.kind));
+            sig.param_types.push_back(ast_to_types(param.type));
         }
         
         if (fn.return_type) {
-            sig.return_type = ast_to_types(fn.return_type->kind);
+            sig.return_type = ast_to_types(*fn.return_type);
         } else {
             sig.return_type = types::Type::make_void();
         }
@@ -202,14 +220,14 @@ void Sema::check_fn(ast::FnDecl& fn) {
     // Set current return type for return statement checking
     // If no annotation, use UNKNOWN to skip strict checking (MPP lenient)
     if (fn.return_type) {
-        current_return_type_ = ast_to_types(fn.return_type->kind);
+        current_return_type_ = ast_to_types(*fn.return_type);
     } else {
         current_return_type_ = types::Type::make_unknown();
     }
     
     // Declare parameters
     for (const auto& param : fn.params) {
-        declare(param.name, ast_to_types(param.type.kind), param.span);
+        declare(param.name, ast_to_types(param.type), param.span);
     }
     
     // Check body statements
@@ -223,7 +241,7 @@ void Sema::check_fn(ast::FnDecl& fn) {
     // return type is explicitly declared and non-void; an absent annotation
     // stays lenient (UNKNOWN), matching the MPP's treatment of `fn main()`.
     if (fn.return_type) {
-        types::Type rt = ast_to_types(fn.return_type->kind);
+        types::Type rt = ast_to_types(*fn.return_type);
         if (!rt.is_void() && !rt.is_unknown()
             && !block_definitely_returns(fn.body)) {
             error(ErrorKind::MISSING_RETURN,
@@ -257,7 +275,7 @@ void Sema::check_stmt(ast::Stmt& stmt) {
 
             types::Type var_type = init_type;
             if (s.type_annot) {
-                var_type = ast_to_types(s.type_annot->kind);
+                var_type = ast_to_types(*s.type_annot);
                 // Check type compatibility
                 if (!init_type.is_unknown() && !types::types_compatible(var_type, init_type)) {
                     error(ErrorKind::TYPE_MISMATCH,
@@ -407,6 +425,30 @@ types::Type Sema::check_expr(ast::Expr& expr) {
             return e.operand ? check_expr(*e.operand) : types::Type::make_unknown();
         }
         else if constexpr (std::is_same_v<T, ast::CallExpr>) {
+            // Struct construction: `Name(f1, f2, ...)` — positional, in field
+            // declaration order. Recognised when the callee is a struct name.
+            auto sit = structs_.find(e.callee);
+            if (sit != structs_.end()) {
+                const auto& fields = sit->second;
+                if (e.args.size() != fields.size()) {
+                    error(ErrorKind::WRONG_ARG_COUNT,
+                          "Struct '" + e.callee + "' has " +
+                          std::to_string(fields.size()) + " fields, got " +
+                          std::to_string(e.args.size()), e.span);
+                }
+                for (size_t i = 0; i < e.args.size(); ++i) {
+                    types::Type at = check_expr(*e.args[i]);
+                    if (i < fields.size()
+                        && !types::types_compatible(fields[i].second, at)) {
+                        error(ErrorKind::TYPE_MISMATCH,
+                              "Field '" + fields[i].first + "' of '" + e.callee +
+                              "' expects " + fields[i].second.to_string() +
+                              ", got " + at.to_string(), e.args[i]->span());
+                    }
+                }
+                return types::Type::make_struct(e.callee);
+            }
+
             auto it = functions_.find(e.callee);
             if (it == functions_.end()) {
                 error(ErrorKind::UNDEFINED_FUNCTION,
@@ -442,6 +484,24 @@ types::Type Sema::check_expr(ast::Expr& expr) {
             }
             
             return sig.return_type;
+        }
+        else if constexpr (std::is_same_v<T, ast::FieldAccess>) {
+            types::Type obj = e.object ? check_expr(*e.object) : types::Type::make_unknown();
+            if (obj.is_unknown()) return types::Type::make_unknown();
+            if (!obj.is_struct()) {
+                error(ErrorKind::TYPE_MISMATCH,
+                      "field access '." + e.field + "' on non-struct value", e.span);
+                return types::Type::make_unknown();
+            }
+            auto sit = structs_.find(obj.struct_name);
+            if (sit != structs_.end()) {
+                for (const auto& f : sit->second) {
+                    if (f.first == e.field) return f.second;
+                }
+                error(ErrorKind::TYPE_MISMATCH,
+                      "struct '" + obj.struct_name + "' has no field '" + e.field + "'", e.span);
+            }
+            return types::Type::make_unknown();
         }
         else if constexpr (std::is_same_v<T, ast::GroupExpr>) {
             return e.inner ? check_expr(*e.inner) : types::Type::make_unknown();

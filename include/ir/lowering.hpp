@@ -43,6 +43,12 @@ private:
     // instruction a typed result Value.
     std::unordered_map<std::string, types::Type> fn_return_types_;
 
+    // Struct layouts: name -> ordered (field name, field type). Used to resolve
+    // a field access to a positional index + result type, and to recognise a
+    // call whose callee is a struct name as construction. Populated in lower().
+    std::unordered_map<std::string,
+        std::vector<std::pair<std::string, types::Type>>> structs_;
+
     void lower_function(Module& mod, ast::FnDecl& fn);
     void lower_stmt(IRBuilder& builder, ast::Stmt& stmt);
     Value lower_expr(IRBuilder& builder, ast::Expr& expr);

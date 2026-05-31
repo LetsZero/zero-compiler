@@ -43,8 +43,14 @@ namespace backend {
  */
 using TensorPtr = std::shared_ptr<zero::Tensor>;
 
+// A struct value is just an ordered list of field values (interpreter-side
+// representation; the runtime's StructLayout/StructData is reserved for the
+// future codegen backend). shared_ptr keeps copies cheap and recursion-safe.
+struct StructVal;
+using StructPtr = std::shared_ptr<StructVal>;
+
 struct RuntimeValue {
-    std::variant<std::monostate, int64_t, double, void*, std::string, TensorPtr> data;
+    std::variant<std::monostate, int64_t, double, void*, std::string, TensorPtr, StructPtr> data;
 
     RuntimeValue() : data(std::monostate{}) {}
     explicit RuntimeValue(int64_t v) : data(v) {}
@@ -52,6 +58,7 @@ struct RuntimeValue {
     explicit RuntimeValue(void* v) : data(v) {}
     explicit RuntimeValue(const std::string& v) : data(v) {}
     explicit RuntimeValue(TensorPtr t) : data(std::move(t)) {}
+    explicit RuntimeValue(StructPtr s) : data(std::move(s)) {}
 
     bool is_void() const { return std::holds_alternative<std::monostate>(data); }
     bool is_int() const { return std::holds_alternative<int64_t>(data); }
@@ -59,12 +66,14 @@ struct RuntimeValue {
     bool is_ptr() const { return std::holds_alternative<void*>(data); }
     bool is_str() const { return std::holds_alternative<std::string>(data); }
     bool is_tensor() const { return std::holds_alternative<TensorPtr>(data); }
+    bool is_struct() const { return std::holds_alternative<StructPtr>(data); }
 
     int64_t as_int() const { return std::get<int64_t>(data); }
     double as_float() const { return std::get<double>(data); }
     void* as_ptr() const { return std::get<void*>(data); }
     const std::string& as_str() const { return std::get<std::string>(data); }
     const TensorPtr& as_tensor() const { return std::get<TensorPtr>(data); }
+    const StructPtr& as_struct() const { return std::get<StructPtr>(data); }
     
     // Convert to int for comparisons
     int64_t to_int() const {
@@ -78,6 +87,13 @@ struct RuntimeValue {
         if (is_int()) return static_cast<double>(as_int());
         return 0.0;
     }
+};
+
+// Defined after RuntimeValue (it holds field values). Field order matches the
+// struct's declaration order; `names` is kept for debug printing only.
+struct StructVal {
+    std::vector<RuntimeValue> fields;
+    std::vector<std::string> names;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -76,6 +76,12 @@ A **2-layer MLP with a fully hand-written backward pass** — backprop through
 the manual reference that autograd will need to reproduce. Uses `matmul`,
 `transpose`, `relu`, `step`.
 
+### 10. struct_param.zero
+
+First use of `struct`: a `Param { value, grad }` bundles a weight with its
+gradient — the shape autograd will use. Trains a 3-feature regression; `value`
+converges toward `[1, 2, 3]`.
+
 ## Language Features
 
 ```zero

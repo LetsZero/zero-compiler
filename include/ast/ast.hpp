@@ -66,13 +66,15 @@ enum class TypeKind {
     FLOAT,
     VOID,
     TENSOR,
+    STRUCT,
     UNKNOWN
 };
 
 struct Type {
     TypeKind kind = TypeKind::UNKNOWN;
     source::Span span;
-    
+    std::string name;   // struct name when kind == STRUCT
+
     static Type make_int(source::Span s = {}) { return Type{TypeKind::INT, s}; }
     static Type make_float(source::Span s = {}) { return Type{TypeKind::FLOAT, s}; }
     static Type make_void(source::Span s = {}) { return Type{TypeKind::VOID, s}; }
@@ -126,6 +128,13 @@ struct GroupExpr {
     source::Span span;
 };
 
+// Field access: `object.field`. The object expression evaluates to a struct.
+struct FieldAccess {
+    std::unique_ptr<Expr> object;
+    std::string field;
+    source::Span span;
+};
+
 // 1-D F32 tensor literal: `tensor([1.0, 2.0, 3.0])` (spec 004).
 // Integer elements are widened to float in lowering.
 struct TensorLiteral {
@@ -147,7 +156,8 @@ using ExprVariant = std::variant<
     UnaryExpr,
     CallExpr,
     GroupExpr,
-    TensorLiteral
+    TensorLiteral,
+    FieldAccess
 >;
 
 struct Expr {
@@ -257,8 +267,23 @@ struct FnDecl {
     source::Span span;
 };
 
+// A struct declaration: `struct Name { f1: T1, f2: T2 }`. Fields are ordered;
+// construction is positional (`Name(e1, e2)`), matching this order.
+struct StructField {
+    std::string name;
+    Type type;
+    source::Span span;
+};
+
+struct StructDecl {
+    std::string name;
+    std::vector<StructField> fields;
+    source::Span span;
+};
+
 struct Program {
     std::vector<FnDecl> functions;
+    std::vector<StructDecl> structs;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

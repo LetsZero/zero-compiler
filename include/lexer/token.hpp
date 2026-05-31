@@ -33,7 +33,8 @@ enum class TokenType {
     WHILE,          // while
     USE,            // use
     TENSOR,         // tensor (spec 004)
-    
+    STRUCT,         // struct
+
     // Operators
     PLUS,           // +
     MINUS,          // -
@@ -59,6 +60,7 @@ enum class TokenType {
     COLON,          // :
     SEMICOLON,      // ;
     ARROW,          // ->
+    DOT,            // .
     
     // Special
     NEWLINE,        // \n
@@ -120,6 +122,7 @@ inline const char* Token::type_name(TokenType t) {
         case TokenType::WHILE:      return "WHILE";
         case TokenType::USE:        return "USE";
         case TokenType::TENSOR:     return "TENSOR";
+        case TokenType::STRUCT:     return "STRUCT";
         case TokenType::PLUS:       return "PLUS";
         case TokenType::MINUS:      return "MINUS";
         case TokenType::STAR:       return "STAR";
@@ -142,6 +145,7 @@ inline const char* Token::type_name(TokenType t) {
         case TokenType::COLON:      return "COLON";
         case TokenType::SEMICOLON:  return "SEMICOLON";
         case TokenType::ARROW:      return "ARROW";
+        case TokenType::DOT:        return "DOT";
         case TokenType::NEWLINE:    return "NEWLINE";
         case TokenType::EOF_TOKEN:  return "EOF";
         case TokenType::ERROR:      return "ERROR";

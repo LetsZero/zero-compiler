@@ -139,8 +139,10 @@ Program Parser::parse() {
         
         if (check(TokenType::FN)) {
             program.functions.push_back(parse_fn_decl());
+        } else if (check(TokenType::STRUCT)) {
+            program.structs.push_back(parse_struct_decl());
         } else {
-            error("Expected function declaration");
+            error("Expected function or struct declaration");
             synchronize();
         }
         skip_newlines();
@@ -188,6 +190,46 @@ FnDecl Parser::parse_fn_decl() {
     return fn;
 }
 
+StructDecl Parser::parse_struct_decl() {
+    StructDecl sd;
+    Span start = current_.span;
+
+    consume(TokenType::STRUCT, "Expected 'struct'");
+
+    if (!check(TokenType::IDENT)) {
+        error("Expected struct name");
+        return sd;
+    }
+    sd.name = std::string(current_.text);
+    advance();
+
+    skip_newlines();
+    consume(TokenType::LBRACE, "Expected '{' after struct name");
+    skip_newlines();
+
+    // Fields: `name : Type`, separated by commas and/or newlines.
+    while (!check(TokenType::RBRACE) && !current_.is_eof()) {
+        if (!check(TokenType::IDENT)) {
+            error("Expected field name");
+            break;
+        }
+        StructField f;
+        f.name = std::string(current_.text);
+        f.span = current_.span;
+        advance();
+        consume(TokenType::COLON, "Expected ':' after field name");
+        f.type = parse_type();
+        sd.fields.push_back(std::move(f));
+
+        match(TokenType::COMMA);
+        skip_newlines();
+    }
+
+    consume(TokenType::RBRACE, "Expected '}' after struct fields");
+    sd.span = start.merge(previous_.span);
+    return sd;
+}
+
 std::vector<Param> Parser::parse_params() {
     std::vector<Param> params;
     
@@ -231,7 +273,7 @@ Type Parser::parse_type() {
         if (name == "int") t.kind = TypeKind::INT;
         else if (name == "float") t.kind = TypeKind::FLOAT;
         else if (name == "void") t.kind = TypeKind::VOID;
-        else t.kind = TypeKind::UNKNOWN;
+        else { t.kind = TypeKind::STRUCT; t.name = std::string(name); }  // struct type
     } else {
         error("Expected type");
     }
@@ -506,36 +548,54 @@ std::unique_ptr<Expr> Parser::parse_unary() {
 
 std::unique_ptr<Expr> Parser::parse_call() {
     auto expr = parse_primary();
-    
-    // Check for function call: identifier followed by (
-    if (expr && expr->is<Identifier>() && match(TokenType::LPAREN)) {
-        CallExpr call;
-        call.callee = expr->as<Identifier>().name;
-        call.span = expr->span();
-        
-        // Parse arguments. Spec 018b: newlines are insignificant inside the
-        // argument list, so multi-line calls (matmul(a,\n b)) parse.
-        skip_newlines();
-        if (!check(TokenType::RPAREN)) {
-            do {
-                skip_newlines();
-                // Check for keyword argument: name = expr
-                if (check(TokenType::IDENT) && lexer_.peek().type == TokenType::EQ) {
-                    advance();  // consume identifier (keyword name)
-                    advance();  // consume '='
-                }
-                call.args.push_back(parse_expr());
-                skip_newlines();
-            } while (match(TokenType::COMMA));
-        }
 
-        skip_newlines();
-        consume(TokenType::RPAREN, "Expected ')' after arguments");
-        call.span = call.span.merge(previous_.span);
-        
-        return make_expr(std::move(call));
+    // Postfix loop: function calls (`ident(...)`) and field accesses
+    // (`expr.field`), chained — so `f().value`, `p.value`, etc. all parse.
+    for (;;) {
+        if (expr && expr->is<Identifier>() && check(TokenType::LPAREN)) {
+            match(TokenType::LPAREN);
+            CallExpr call;
+            call.callee = expr->as<Identifier>().name;
+            call.span = expr->span();
+
+            // Arguments. Spec 018b: newlines insignificant inside the list.
+            skip_newlines();
+            if (!check(TokenType::RPAREN)) {
+                do {
+                    skip_newlines();
+                    // Keyword argument: name = expr
+                    if (check(TokenType::IDENT) && lexer_.peek().type == TokenType::EQ) {
+                        advance();  // identifier (keyword name)
+                        advance();  // '='
+                    }
+                    call.args.push_back(parse_expr());
+                    skip_newlines();
+                } while (match(TokenType::COMMA));
+            }
+
+            skip_newlines();
+            consume(TokenType::RPAREN, "Expected ')' after arguments");
+            call.span = call.span.merge(previous_.span);
+            expr = make_expr(std::move(call));
+        }
+        else if (match(TokenType::DOT)) {
+            if (!check(TokenType::IDENT)) {
+                error("Expected field name after '.'");
+                break;
+            }
+            FieldAccess fa;
+            Span field_span = current_.span;
+            fa.field = std::string(current_.text);
+            advance();
+            fa.span = (expr ? expr->span() : field_span).merge(field_span);
+            fa.object = std::move(expr);
+            expr = make_expr(std::move(fa));
+        }
+        else {
+            break;
+        }
     }
-    
+
     return expr;
 }
 

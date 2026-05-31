@@ -13,12 +13,13 @@ namespace ir {
 // Helper to convert ast::TypeKind to types::Type
 // ─────────────────────────────────────────────────────────────────────────────
 
-static types::Type ast_to_type(ast::TypeKind kind) {
-    switch (kind) {
+static types::Type ast_to_type(const ast::Type& t) {
+    switch (t.kind) {
         case ast::TypeKind::INT: return types::Type::make_int();
         case ast::TypeKind::FLOAT: return types::Type::make_float();
         case ast::TypeKind::VOID: return types::Type::make_void();
         case ast::TypeKind::TENSOR: return types::Type::make_tensor();
+        case ast::TypeKind::STRUCT: return types::Type::make_struct(t.name);
         default: return types::Type::make_unknown();
     }
 }
@@ -60,9 +61,19 @@ Module Lowering::lower(ast::Program& prog) {
     fn_return_types_.clear();
     for (auto& fn_ast : prog.functions) {
         types::Type ret_type = fn_ast.return_type
-            ? ast_to_type(fn_ast.return_type->kind)
+            ? ast_to_type(*fn_ast.return_type)
             : types::Type::make_void();
         fn_return_types_[fn_ast.name] = ret_type;
+    }
+
+    // Forward pass: record each struct's ordered (field name, type) so field
+    // access can resolve a positional index + result type, and a call whose
+    // callee is a struct name can be lowered as construction.
+    structs_.clear();
+    for (auto& sd : prog.structs) {
+        std::vector<std::pair<std::string, types::Type>> fields;
+        for (auto& f : sd.fields) fields.emplace_back(f.name, ast_to_type(f.type));
+        structs_[sd.name] = std::move(fields);
     }
 
     // Lower each function
@@ -77,12 +88,12 @@ void Lowering::lower_function(Module& mod, ast::FnDecl& fn_ast) {
     // Get parameter types
     std::vector<types::Type> param_types;
     for (const auto& p : fn_ast.params) {
-        param_types.push_back(ast_to_type(p.type.kind));
+        param_types.push_back(ast_to_type(p.type));
     }
 
     // Get return type
     types::Type ret_type = fn_ast.return_type
-        ? ast_to_type(fn_ast.return_type->kind)
+        ? ast_to_type(*fn_ast.return_type)
         : types::Type::make_void();
 
     // Create function
@@ -297,6 +308,11 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
                 && args[0].type.is_tensor() && args[1].type.is_tensor()) {
                 return builder.tensor_matmul(args[0], args[1]);
             }
+            // Struct construction: callee is a struct name -> STRUCT_NEW with
+            // the args as fields (positional, declaration order).
+            if (structs_.count(e.callee)) {
+                return builder.struct_new(args, types::Type::make_struct(e.callee));
+            }
             // Spec 006: use the declared return type of the user function
             // when known; fall back to void for builtins like print/capture.
             auto ret_it = fn_return_types_.find(e.callee);
@@ -304,6 +320,22 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
                 ? ret_it->second
                 : types::Type::make_void();
             return builder.call(e.callee, args, ret_type);
+        }
+        else if constexpr (std::is_same_v<T, ast::FieldAccess>) {
+            Value obj = e.object ? lower_expr(builder, *e.object) : Value{};
+            // Resolve the field's positional index and type from the object's
+            // struct layout (carried on its Value type).
+            auto sit = structs_.find(obj.type.struct_name);
+            if (sit != structs_.end()) {
+                const auto& fields = sit->second;
+                for (size_t i = 0; i < fields.size(); ++i) {
+                    if (fields[i].first == e.field) {
+                        return builder.struct_get(obj, static_cast<int64_t>(i),
+                                                  fields[i].second);
+                    }
+                }
+            }
+            return Value{};   // unknown struct/field (sema already reported it)
         }
         else if constexpr (std::is_same_v<T, ast::GroupExpr>) {
             return e.inner ? lower_expr(builder, *e.inner) : Value{};

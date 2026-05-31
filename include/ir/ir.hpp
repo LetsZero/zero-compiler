@@ -112,6 +112,11 @@ enum class OpCode {
     // (not a frozen-runtime op): activation math beyond the core set is the
     // compiler/stdlib's job, never the runtime's.
     TENSOR_STEP,
+
+    // Aggregates. STRUCT_NEW builds a struct from its operands (field values
+    // in declaration order). STRUCT_GET extracts field #imm_int from operand 0.
+    STRUCT_NEW,
+    STRUCT_GET,
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -156,6 +161,8 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_SIGMOID: return "tensor.sigmoid";
         case OpCode::TENSOR_TRANSPOSE: return "tensor.transpose";
         case OpCode::TENSOR_STEP: return "tensor.step";
+        case OpCode::STRUCT_NEW: return "struct.new";
+        case OpCode::STRUCT_GET: return "struct.get";
         default: return "unknown";
     }
 }

@@ -1,0 +1,37 @@
+// struct_param.zero — bundling a parameter and its gradient in a struct.
+//
+// First use of `struct`: a Param groups a weight (`value`) with its gradient
+// (`grad`). This is the shape autograd will lean on — parameters and grads
+// travelling together. Construction is positional: `Param(value, grad)`;
+// fields are read with `.value` / `.grad`. Field mutation isn't in the
+// language yet, so the SGD step rebuilds the struct.
+//
+// Trains a 3-feature linear regression; value converges toward [1, 2, 3].
+//
+// Run:  zeroc examples/struct_param.zero
+
+struct Param {
+    value: tensor,
+    grad: tensor,
+}
+
+fn main() {
+    let x = tensor([[1.0, 2.0, 3.0]])
+    let target = 14.0                          // x . [1,2,3] = 14
+
+    let p = Param(tensor([[0.0, 0.0, 0.0]]),
+                  tensor([[0.0, 0.0, 0.0]]))
+    let lr = 0.01
+    let steps = 200
+
+    while steps > 0 {
+        let pred = sum(x * p.value)            // dot product
+        let err = pred - target
+        let grad = (x * err) * 2.0             // d(loss)/d value
+        p = Param(p.value - grad * lr, grad)   // SGD step (rebuild the struct)
+        steps = steps - 1
+    }
+
+    print("learned value (target [1, 2, 3]):", p.value)
+    return 0
+}

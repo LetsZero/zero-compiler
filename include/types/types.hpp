@@ -25,6 +25,7 @@ enum class TypeKind {
     FLOAT,      // f32
     VOID,       // No value
     TENSOR,     // Multi-dimensional array
+    STRUCT,     // Named aggregate of fields
     FUNCTION,   // Function type (for later)
     UNKNOWN     // Placeholder / unresolved
 };
@@ -41,23 +42,31 @@ enum class TypeKind {
  */
 struct Type {
     TypeKind kind = TypeKind::UNKNOWN;
-    
+    // Set only when kind == STRUCT: the declared struct name. Two struct types
+    // are equal iff their names match (nominal typing).
+    std::string struct_name;
+
     // ─────────────────────────────────────────────────────────────────────
     // Constructors
     // ─────────────────────────────────────────────────────────────────────
-    
+
     Type() = default;
     explicit Type(TypeKind k) : kind(k) {}
-    
+
     // ─────────────────────────────────────────────────────────────────────
     // Factory methods
     // ─────────────────────────────────────────────────────────────────────
-    
+
     static Type make_int() { return Type(TypeKind::INT); }
     static Type make_float() { return Type(TypeKind::FLOAT); }
     static Type make_void() { return Type(TypeKind::VOID); }
     static Type make_tensor() { return Type(TypeKind::TENSOR); }
     static Type make_unknown() { return Type(TypeKind::UNKNOWN); }
+    static Type make_struct(const std::string& name) {
+        Type t(TypeKind::STRUCT);
+        t.struct_name = name;
+        return t;
+    }
     
     // ─────────────────────────────────────────────────────────────────────
     // Queries
@@ -67,15 +76,18 @@ struct Type {
     bool is_float() const { return kind == TypeKind::FLOAT; }
     bool is_void() const { return kind == TypeKind::VOID; }
     bool is_tensor() const { return kind == TypeKind::TENSOR; }
+    bool is_struct() const { return kind == TypeKind::STRUCT; }
     bool is_numeric() const { return is_int() || is_float(); }
     bool is_unknown() const { return kind == TypeKind::UNKNOWN; }
-    
+
     // ─────────────────────────────────────────────────────────────────────
     // Equality
     // ─────────────────────────────────────────────────────────────────────
-    
+
     bool operator==(const Type& other) const {
-        return kind == other.kind;
+        if (kind != other.kind) return false;
+        if (kind == TypeKind::STRUCT) return struct_name == other.struct_name;
+        return true;
     }
     
     bool operator!=(const Type& other) const {
@@ -92,6 +104,7 @@ struct Type {
             case TypeKind::FLOAT:   return "float";
             case TypeKind::VOID:    return "void";
             case TypeKind::TENSOR:  return "tensor";
+            case TypeKind::STRUCT:  return struct_name.empty() ? "struct" : struct_name.c_str();
             case TypeKind::FUNCTION: return "function";
             case TypeKind::UNKNOWN: return "unknown";
             default:                return "?";
