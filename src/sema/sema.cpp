@@ -26,6 +26,36 @@ static types::Type ast_to_types(ast::TypeKind kind) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Definite-return analysis (conservative; see header)
+// ─────────────────────────────────────────────────────────────────────────────
+
+bool Sema::stmt_definitely_returns(const ast::Stmt& stmt) {
+    return std::visit([](const auto& s) -> bool {
+        using T = std::decay_t<decltype(s)>;
+        if constexpr (std::is_same_v<T, ast::ReturnStmt>) {
+            return true;
+        } else if constexpr (std::is_same_v<T, ast::IfStmt>) {
+            // Both arms must exist and both must definitely return.
+            return !s.else_branch.empty()
+                && block_definitely_returns(s.then_branch)
+                && block_definitely_returns(s.else_branch);
+        } else if constexpr (std::is_same_v<T, ast::Block>) {
+            return block_definitely_returns(s.stmts);
+        } else {
+            // While/Let/Expr never guarantee a return.
+            return false;
+        }
+    }, stmt.data);
+}
+
+bool Sema::block_definitely_returns(const std::vector<std::unique_ptr<ast::Stmt>>& stmts) {
+    for (const auto& s : stmts) {
+        if (s && stmt_definitely_returns(*s)) return true;
+    }
+    return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Scope management
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -186,7 +216,22 @@ void Sema::check_fn(ast::FnDecl& fn) {
     for (auto& stmt : fn.body) {
         check_stmt(*stmt);
     }
-    
+
+    // A non-void function must return a value on every path. Without this,
+    // falling off the end leaves the interpreter returning an undefined
+    // leftover value (the last evaluated instruction). Only enforced when the
+    // return type is explicitly declared and non-void; an absent annotation
+    // stays lenient (UNKNOWN), matching the MPP's treatment of `fn main()`.
+    if (fn.return_type) {
+        types::Type rt = ast_to_types(fn.return_type->kind);
+        if (!rt.is_void() && !rt.is_unknown()
+            && !block_definitely_returns(fn.body)) {
+            error(ErrorKind::MISSING_RETURN,
+                  "function '" + fn.name + "' has return type " + rt.to_string() +
+                  " but may reach the end without returning a value", fn.span);
+        }
+    }
+
     pop_scope();
 }
 
@@ -244,7 +289,11 @@ void Sema::check_stmt(ast::Stmt& stmt) {
         }
         else if constexpr (std::is_same_v<T, ast::IfStmt>) {
             if (s.condition) {
-                check_expr(*s.condition);
+                types::Type ct = check_expr(*s.condition);
+                if (ct.is_tensor()) {
+                    error(ErrorKind::TYPE_MISMATCH,
+                          "condition must be a scalar, got tensor", s.condition->span());
+                }
             }
             push_scope();
             for (auto& then_stmt : s.then_branch) {
@@ -262,7 +311,11 @@ void Sema::check_stmt(ast::Stmt& stmt) {
         }
         else if constexpr (std::is_same_v<T, ast::WhileStmt>) {
             if (s.condition) {
-                check_expr(*s.condition);
+                types::Type ct = check_expr(*s.condition);
+                if (ct.is_tensor()) {
+                    error(ErrorKind::TYPE_MISMATCH,
+                          "condition must be a scalar, got tensor", s.condition->span());
+                }
             }
             push_scope();
             for (auto& body_stmt : s.body) {
@@ -333,12 +386,19 @@ types::Type Sema::check_expr(ast::Expr& expr) {
                       std::to_string(e.args.size()), e.span);
             }
             
-            // Check argument types
-            for (size_t i = 0; i < e.args.size() && i < sig.param_types.size(); ++i) {
+            // Check arguments. Recurse into EVERY argument so sub-expression
+            // errors (undefined variables, nested bad arity, type mismatches)
+            // surface even for variadic functions — whose param_types is empty.
+            // The earlier `i < sig.param_types.size()` bound skipped the loop
+            // body entirely for variadics, silently leaving their arguments
+            // unchecked (e.g. relu/sum/matmul/print/capture). Only perform the
+            // declared-param-type comparison for positions that have one.
+            for (size_t i = 0; i < e.args.size(); ++i) {
                 types::Type arg_type = check_expr(*e.args[i]);
-                if (!types::types_compatible(sig.param_types[i], arg_type)) {
+                if (i < sig.param_types.size()
+                    && !types::types_compatible(sig.param_types[i], arg_type)) {
                     error(ErrorKind::TYPE_MISMATCH,
-                          "Argument " + std::to_string(i + 1) + " type mismatch", 
+                          "Argument " + std::to_string(i + 1) + " type mismatch",
                           e.args[i]->span());
                 }
             }

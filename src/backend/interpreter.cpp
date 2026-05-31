@@ -54,6 +54,27 @@ static TensorPtr scalar_to_tensor1(const RuntimeValue& v) {
     return t;
 }
 
+// Materialise a scalar RuntimeValue as a full F32 tensor matching `like`'s
+// shape, every element set to the scalar. Used for `scalar OP tensor` with a
+// non-commutative op (`s - t`, `s / t`): the runtime only broadcasts a
+// numel==1 operand on the RHS, so to compute `s OP t[i]` per element we lift
+// the scalar to the tensor's shape and do a same-shape elementwise op.
+static TensorPtr scalar_to_tensor_like(const RuntimeValue& v, const zero::Tensor& like) {
+    int64_t shape[zero::MAX_DIMS] = {0};
+    for (int8_t i = 0; i < like.ndim; ++i) shape[i] = like.shape[i];
+    TensorPtr t(
+        new zero::Tensor(zero::Tensor::alloc(shape, like.ndim, zero::DType::F32)),
+        [](zero::Tensor* p) { if (p && p->owns_data) p->free(); delete p; });
+    if (t->data == nullptr) {
+        throw std::runtime_error("scalar broadcast: output allocation failed");
+    }
+    float* d = static_cast<float*>(t->data);
+    const int64_t n = t->numel();
+    const float fv = static_cast<float>(v.to_float());
+    for (int64_t i = 0; i < n; ++i) d[i] = fv;
+    return t;
+}
+
 // Format-and-throw helper. Centralises the message format that spec 003
 // established (op name + code + msg + @span fragment).
 //
@@ -125,7 +146,17 @@ RuntimeValue Interpreter::call_function(const Function& fn,
     if (ext_it != externals_.end()) {
         return ext_it->second(args);
     }
-    
+
+    // Call-depth guard. The interpreter recurses on the native C++ stack for
+    // every Zero-level call (exec_instruction CALL -> call_function), so an
+    // unbounded recursion would overflow the real stack and SIGSEGV. Turn that
+    // crash into a catchable diagnostic well before the native limit.
+    if (call_stack_.size() >= kMaxCallDepth) {
+        throw std::runtime_error(
+            "maximum call depth exceeded (" + std::to_string(kMaxCallDepth) +
+            ") — unbounded recursion in '" + fn.name + "'?");
+    }
+
     // Push call frame, binding incoming args to the callee's parameter
     // SSA values before the frame goes on the stack (spec 006). Binding
     // before push means the very first instruction of the callee can
@@ -159,11 +190,16 @@ RuntimeValue Interpreter::call_function(const Function& fn,
                 bb.instrs[call_stack_[my_frame_idx].instr_idx];
 
             if (instr.op == OpCode::RET) {
-                if (!instr.operands.empty()) {
-                    result = get_value(instr.operands[0]);
-                }
+                // A bare `return` (or implicit end-of-function return) yields a
+                // defined void value — never the leftover `result` from the
+                // last evaluated instruction. Returning `result` here let a
+                // non-void function that fell off the end leak its last
+                // expression's value (now also flagged by sema).
+                RuntimeValue ret = instr.operands.empty()
+                    ? RuntimeValue{}
+                    : get_value(instr.operands[0]);
                 call_stack_.pop_back();
-                return result;
+                return ret;
             }
 
             if (instr.op == OpCode::BR) {
@@ -407,14 +443,17 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
                 a = lhs_v.as_tensor();
                 b = scalar_to_tensor1(rhs_v);
             } else if (rt) {                       // scalar OP tensor
+                const TensorPtr& t = rhs_v.as_tensor();
                 if (instr.op == OpCode::TENSOR_ADD || instr.op == OpCode::TENSOR_MUL) {
-                    // commutative: swap so the tensor is `a`.
-                    a = rhs_v.as_tensor();
+                    // commutative: swap so the tensor is the shape-defining `a`
+                    // and the scalar broadcasts via numel==1.
+                    a = t;
                     b = scalar_to_tensor1(lhs_v);
                 } else {
-                    throw std::runtime_error(
-                        "scalar on the left of a non-commutative tensor op "
-                        "(s - t, s / t) is not supported");
+                    // non-commutative (s - t, s / t): lift the scalar to the
+                    // tensor's shape so the elementwise op yields s OP t[i].
+                    a = scalar_to_tensor_like(lhs_v, *t);
+                    b = t;
                 }
             } else {
                 throw std::runtime_error("tensor binary op: non-tensor operand");
@@ -482,9 +521,16 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             }
             const TensorPtr& a = lhs_v.as_tensor();
             const TensorPtr& b = rhs_v.as_tensor();
-            // matmul requires rank-2; the runtime returns INVALID_ARGUMENT
-            // otherwise. We don't pre-validate; just construct the output
-            // shape from A.rows × B.cols and let the runtime decide.
+            // matmul requires rank-2. Pre-validate the ranks here: otherwise a
+            // rank-<2 operand produces a degenerate output shape (e.g. [N, 0]),
+            // whose zero-byte allocation fails first and masks the real cause
+            // with a misleading "output allocation failed".
+            if (a->ndim != 2 || b->ndim != 2) {
+                std::ostringstream m;
+                m << "tensor_matmul: requires rank-2 operands, got ranks "
+                  << static_cast<int>(a->ndim) << " and " << static_cast<int>(b->ndim);
+                throw std::runtime_error(m.str());
+            }
             int64_t shape_arr[2] = {
                 a->ndim >= 1 ? a->shape[0] : 0,
                 b->ndim >= 2 ? b->shape[1] : 0

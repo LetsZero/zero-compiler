@@ -68,8 +68,9 @@ static void run_src(const std::string& src) {
     interp.execute(mod);
 }
 
-// Run expecting a runtime throw; returns true if it threw.
-static bool run_expect_throw(const std::string& src) {
+// Run expecting a runtime throw; returns true if it threw. (Retained for
+// future negative cases; the scalar-left ops no longer throw — see fix #5.)
+[[maybe_unused]] static bool run_expect_throw(const std::string& src) {
     SourceManager sm;
     SourceID sid = sm.load_from_string("test.zero", src);
     Parser parser(sm, sid);
@@ -116,9 +117,14 @@ TEST(scalar_left_commutative) {
     assert(near(cap()[0],11)&&near(cap()[1],12)&&near(cap()[2],13));
 }
 
-TEST(scalar_left_noncommutative_throws) {
-    assert(run_expect_throw("fn main() { capture(2.0 - tensor([1,2,3])); }"));
-    assert(run_expect_throw("fn main() { capture(6.0 / tensor([1,2,3])); }"));
+TEST(scalar_left_noncommutative) {
+    // Robustness fix: `scalar - tensor` / `scalar / tensor` used to throw
+    // ("not supported"). They now lift the scalar to the tensor's shape and
+    // compute s OP t[i] per element. See PHASE0_ROBUSTNESS_FINDINGS #5.
+    run_src("fn main() { capture(2.0 - tensor([1,2,3])); }");      // {1, 0, -1}
+    assert(near(cap()[0],1)&&near(cap()[1],0)&&near(cap()[2],-1));
+    run_src("fn main() { capture(6.0 / tensor([1,2,3])); }");      // {6, 3, 2}
+    assert(near(cap()[0],6)&&near(cap()[1],3)&&near(cap()[2],2));
 }
 
 TEST(integer_scalar_literal) {

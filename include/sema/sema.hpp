@@ -31,7 +31,8 @@ enum class ErrorKind {
     TYPE_MISMATCH,
     RETURN_TYPE_MISMATCH,
     DUPLICATE_DEFINITION,
-    SHAPE_MISMATCH          // spec 018: static, literal-derived shape check
+    SHAPE_MISMATCH,         // spec 018: static, literal-derived shape check
+    MISSING_RETURN          // non-void function may fall off the end
 };
 
 struct SemanticError {
@@ -129,6 +130,15 @@ private:
     void check_fn(ast::FnDecl& fn);
     void check_stmt(ast::Stmt& stmt);
     types::Type check_expr(ast::Expr& expr);
+
+    // Conservative "definitely returns on every path" analysis used to flag a
+    // non-void function that may fall off the end (which the interpreter would
+    // otherwise resolve to an undefined leftover value). A statement list
+    // definitely returns if any statement in it definitely returns; an
+    // if/else definitely returns when both arms do. Loops never count (the
+    // body may not execute). False here means "may fall through".
+    static bool block_definitely_returns(const std::vector<std::unique_ptr<ast::Stmt>>& stmts);
+    static bool stmt_definitely_returns(const ast::Stmt& stmt);
 
     // Spec 018: infer a tensor expression's static shape (literal-derived),
     // emitting SHAPE_MISMATCH on incompatible elementwise/matmul operands.

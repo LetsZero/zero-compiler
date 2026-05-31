@@ -4,7 +4,8 @@
 > "where are we right now" snapshot. For the plan and the per-feature history,
 > see [ROADMAP.md](ROADMAP.md) and [docs/specs/](specs/).
 
-**As of:** Phase 0 complete (spec 019). CI green on Linux + macOS, **27/27** tests.
+**As of:** Phase 0 complete (spec 019) + robustness hardening. CI green on
+Linux + macOS, **28/28** tests.
 
 ---
 
@@ -42,7 +43,15 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
   - reductions: `sum`, `mean`, `argmax` (full reduction → `[1]`)
   - tensor–scalar broadcast (`x * 2.0`)
   - user functions with tensor params/returns; nested calls
-- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 27 test binaries.
+- **Robustness hardening (post-capstone edge-case audit):** an adversarial pass
+  over the whole pipeline found and fixed 8 issues — two process crashes (float
+  literal overflow → `SIGABRT`; deep recursion → `SIGSEGV`), a missing-return
+  value leak, a sema hole where variadic-function arguments went unchecked, plus
+  cleaner diagnostics for scalar–tensor ops, matmul rank errors, integer
+  overflow, and non-scalar conditions. All locked in by `tests/test_robustness.cpp`
+  (`ZeroRobustnessTest`, 13 cases). Full writeup: [PHASE0_ROBUSTNESS_FINDINGS.md](PHASE0_ROBUSTNESS_FINDINGS.md).
+- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 28 test binaries
+  (ctest auto-discovers registered tests — no per-test wiring needed).
 
 ## What does NOT exist yet (the honest gaps)
 
@@ -71,7 +80,7 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
 1. **Read, in order:** [CLAUDE.md](../CLAUDE.md) (inviolable rules), this file,
    [ROADMAP.md](ROADMAP.md), [DEFERRED.md](DEFERRED.md).
 2. **Build & test:** `cmake -B build && cmake --build build --parallel && ctest --test-dir build`
-   (expect 27/27). The submodule must be initialised:
+   (expect 28/28). The submodule must be initialised:
    `git submodule update --init --recursive`.
 3. **Workflow:** spec-driven. Every change starts with an approved
    `docs/specs/NNN-*.md` (template in `docs/specs/_TEMPLATE.md`); tests written

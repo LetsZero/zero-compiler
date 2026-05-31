@@ -5,6 +5,10 @@
 
 #include "parser/parser.hpp"
 #include <charconv>
+#include <cstdlib>
+#include <cerrno>
+#include <cmath>
+#include <string>
 
 namespace zero {
 namespace parser {
@@ -12,6 +16,24 @@ namespace parser {
 using namespace lexer;
 using namespace ast;
 using namespace source;
+
+namespace {
+// Parse a double from token text, guarding against overflow and malformed
+// input. Returns true on success. `std::stod` (used previously) throws
+// std::out_of_range on overflow — an *uncaught* exception that aborted the
+// whole compiler, violating the "errors are data, not control flow" rule.
+// Underflow to a subnormal/zero is accepted (not an error).
+bool try_parse_double(std::string_view text, double& out) {
+    std::string s(text);
+    errno = 0;
+    char* end = nullptr;
+    double v = std::strtod(s.c_str(), &end);
+    if (end == s.c_str()) return false;                                  // no conversion
+    if (errno == ERANGE && (v == HUGE_VAL || v == -HUGE_VAL)) return false; // overflow
+    out = v;
+    return true;
+}
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor
@@ -502,21 +524,29 @@ std::unique_ptr<Expr> Parser::parse_primary() {
         IntLiteral lit;
         lit.span = previous_.span;
         lit.value = 0;
-        
+
         auto [ptr, ec] = std::from_chars(
-            previous_.text.data(), 
+            previous_.text.data(),
             previous_.text.data() + previous_.text.size(),
             lit.value
         );
-        
+        (void)ptr;
+        if (ec != std::errc()) {
+            // Out-of-range integers previously parsed to a silent 0.
+            error_at(previous_, "integer literal out of range");
+        }
+
         return make_expr(std::move(lit));
     }
-    
+
     // Float literal
     if (match(TokenType::FLOAT_LIT)) {
         FloatLiteral lit;
         lit.span = previous_.span;
-        lit.value = std::stod(std::string(previous_.text));
+        if (!try_parse_double(previous_.text, lit.value)) {
+            lit.value = 0.0;
+            error_at(previous_, "floating-point literal out of range");
+        }
         return make_expr(std::move(lit));
     }
     
@@ -649,11 +679,19 @@ bool Parser::parse_number_row(std::vector<double>& out, size_t& count) {
                 previous_.text.data(),
                 previous_.text.data() + previous_.text.size(),
                 v);
-            (void)p; (void)ec;
+            (void)p;
+            if (ec != std::errc()) {
+                error_at(previous_, "integer literal out of range");
+                return false;
+            }
             double val = static_cast<double>(v);
             out.push_back(negate ? -val : val);
         } else if (match(TokenType::FLOAT_LIT)) {
-            double val = std::stod(std::string(previous_.text));
+            double val = 0.0;
+            if (!try_parse_double(previous_.text, val)) {
+                error_at(previous_, "floating-point literal out of range");
+                return false;
+            }
             out.push_back(negate ? -val : val);
         } else {
             error("Expected numeric literal in tensor element list");

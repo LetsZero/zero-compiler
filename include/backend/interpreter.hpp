@@ -143,6 +143,14 @@ private:
     };
     std::vector<CallFrame> call_stack_;
 
+    // Maximum interpreter call depth. The interpreter recurses on the native
+    // C++ stack per Zero call, so this bounds recursion below the point where
+    // the real stack would overflow (turning a SIGSEGV into a diagnostic).
+    // Measured native overflow is ~1500-2000 frames on an 8 MB stack; 512
+    // leaves a wide margin below that (frame sizes vary by build/platform)
+    // while staying well above legitimate nesting (deepest existing test ~200).
+    static constexpr size_t kMaxCallDepth = 512;
+
     // Exit code
     int exit_code_ = 0;
 
