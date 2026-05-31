@@ -251,7 +251,14 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
     if (check(TokenType::IF)) return parse_if_stmt();
     if (check(TokenType::WHILE)) return parse_while_stmt();
     if (check(TokenType::LBRACE)) return parse_block();
-    
+
+    // Assignment: `name = expr`. Disambiguated from an expression statement by
+    // one token of lookahead — an IDENT immediately followed by '=' (a single
+    // '=', not '==', which lexes as EQ_EQ).
+    if (check(TokenType::IDENT) && lexer_.peek().type == TokenType::EQ) {
+        return parse_assign_stmt();
+    }
+
     return parse_expr_stmt();
 }
 
@@ -281,6 +288,20 @@ std::unique_ptr<Stmt> Parser::parse_let_stmt() {
     
     let.span = let.span.merge(previous_.span);
     return make_stmt(std::move(let));
+}
+
+std::unique_ptr<Stmt> Parser::parse_assign_stmt() {
+    AssignStmt assign;
+    assign.span = current_.span;
+
+    assign.name = std::string(current_.text);
+    advance();  // consume IDENT
+    consume(TokenType::EQ, "Expected '=' in assignment");
+    assign.value = parse_expr();
+
+    match(TokenType::SEMICOLON);
+    assign.span = assign.span.merge(previous_.span);
+    return make_stmt(std::move(assign));
 }
 
 std::unique_ptr<Stmt> Parser::parse_return_stmt() {

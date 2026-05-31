@@ -4,8 +4,9 @@
 > "where are we right now" snapshot. For the plan and the per-feature history,
 > see [ROADMAP.md](ROADMAP.md) and [docs/specs/](specs/).
 
-**As of:** Phase 0 complete (spec 019) + robustness hardening. CI green on
-Linux + macOS, **28/28** tests.
+**As of:** Phase 0 complete (spec 019) + robustness hardening + first Phase-1
+substrate (assignment, CLI tensor output). CI green on Linux + macOS,
+**29/29** tests.
 
 ---
 
@@ -36,12 +37,19 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
 - **Interpreter:** executes against the frozen runtime; per-frame value storage
   (recursion-safe); `Status` errors surfaced as source-spanned `RuntimeError`
   diagnostics.
+- **Variable assignment / mutation (`x = expr`):** reassign declared variables;
+  makes `while` loops useful (the condition sees updated state). Mutated
+  variables lower to memory cells (alloca/load/store) so updates survive across
+  basic blocks; never-reassigned variables keep direct-SSA lowering (identical
+  IR, no regressions). Sema rejects assign-to-undeclared and type mismatches.
+- **CLI tensor output:** `print` renders tensors (1-D / 2-D), so a `.zero`
+  program's tensor results are observable from `zeroc` — not just from C++ tests.
 - **Tensors from source:**
   - literals: 1-D and 2-D (`tensor([[1,2],[3,4]])`), multi-line OK
   - elementwise: `+ - * /`, unary `-`, `relu`, `exp`, `log`, `sqrt`, `tanh`, `sigmoid`
   - `matmul`
   - reductions: `sum`, `mean`, `argmax` (full reduction → `[1]`)
-  - tensor–scalar broadcast (`x * 2.0`)
+  - tensor–scalar broadcast both directions, incl. `s - t` / `s / t` (`x * 2.0`, `1.0 - x`)
   - user functions with tensor params/returns; nested calls
 - **Robustness hardening (post-capstone edge-case audit):** an adversarial pass
   over the whole pipeline found and fixed 8 issues — two process crashes (float
@@ -50,7 +58,7 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
   cleaner diagnostics for scalar–tensor ops, matmul rank errors, integer
   overflow, and non-scalar conditions. All locked in by `tests/test_robustness.cpp`
   (`ZeroRobustnessTest`, 13 cases). Full writeup: [PHASE0_ROBUSTNESS_FINDINGS.md](PHASE0_ROBUSTNESS_FINDINGS.md).
-- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 28 test binaries
+- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 29 test binaries
   (ctest auto-discovers registered tests — no per-test wiring needed).
 
 ## What does NOT exist yet (the honest gaps)
@@ -80,7 +88,7 @@ What it is **not** yet: no autograd (can't train), no LLVM/native codegen
 1. **Read, in order:** [CLAUDE.md](../CLAUDE.md) (inviolable rules), this file,
    [ROADMAP.md](ROADMAP.md), [DEFERRED.md](DEFERRED.md).
 2. **Build & test:** `cmake -B build && cmake --build build --parallel && ctest --test-dir build`
-   (expect 28/28). The submodule must be initialised:
+   (expect 29/29). The submodule must be initialised:
    `git submodule update --init --recursive`.
 3. **Workflow:** spec-driven. Every change starts with an approved
    `docs/specs/NNN-*.md` (template in `docs/specs/_TEMPLATE.md`); tests written

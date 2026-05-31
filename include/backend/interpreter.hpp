@@ -140,6 +140,11 @@ private:
         size_t block_idx;
         size_t instr_idx;
         std::unordered_map<uint32_t, RuntimeValue> locals;
+        // Memory cells for mutable variables (alloca/load/store), keyed by the
+        // ALLOCA result's SSA id. Per-frame, so recursion is isolated. A cell
+        // outlives individual basic blocks (it lives for the whole call),
+        // which is what lets a reassignment be visible to a later loop check.
+        std::unordered_map<uint32_t, RuntimeValue> memory;
     };
     std::vector<CallFrame> call_stack_;
 

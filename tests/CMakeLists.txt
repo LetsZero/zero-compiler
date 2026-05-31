@@ -282,6 +282,15 @@ set_target_properties(test_robustness PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Variable assignment / mutation (memory-cell lowering).
+add_executable(test_assignment
+    test_assignment.cpp
+)
+target_link_libraries(test_assignment PRIVATE zerobackend zerosema)
+set_target_properties(test_assignment PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -326,3 +335,4 @@ add_test(NAME ZeroShapeCheckTest COMMAND test_shape_check)
 add_test(NAME ZeroMultilineTest COMMAND test_multiline)
 add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)
 add_test(NAME ZeroRobustnessTest COMMAND test_robustness)
+add_test(NAME ZeroAssignmentTest COMMAND test_assignment)

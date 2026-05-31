@@ -176,6 +176,14 @@ struct LetStmt {
     source::Span span;
 };
 
+// Reassignment of an existing variable: `name = value`. Distinct from LetStmt
+// (which declares). Enables mutation and makes `while` loops useful.
+struct AssignStmt {
+    std::string name;
+    std::unique_ptr<Expr> value;
+    source::Span span;
+};
+
 struct ReturnStmt {
     std::unique_ptr<Expr> value;  // nullptr for bare return
     source::Span span;
@@ -210,6 +218,7 @@ struct Block {
 
 using StmtVariant = std::variant<
     LetStmt,
+    AssignStmt,
     ReturnStmt,
     ExprStmt,
     IfStmt,

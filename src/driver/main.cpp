@@ -20,8 +20,42 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <sstream>
 
 namespace {
+
+// Render an F32 tensor for `print`. 1-D -> [a, b, c]; 2-D -> [[a, b], [c, d]];
+// anything else falls back to a flat list plus a shape suffix. Without this,
+// `print(some_tensor)` produced nothing — you could not observe the one thing
+// the language exists to compute from the CLI.
+std::string format_tensor(const zero::Tensor& t) {
+    std::ostringstream os;
+    const float* d = static_cast<const float*>(t.data);
+    if (d == nullptr) return "<tensor: null data>";
+
+    if (t.ndim == 1) {
+        os << "[";
+        for (int64_t i = 0; i < t.shape[0]; ++i) os << (i ? ", " : "") << d[i];
+        os << "]";
+    } else if (t.ndim == 2) {
+        os << "[";
+        for (int64_t r = 0; r < t.shape[0]; ++r) {
+            os << (r ? ", " : "") << "[";
+            for (int64_t c = 0; c < t.shape[1]; ++c)
+                os << (c ? ", " : "") << d[r * t.shape[1] + c];
+            os << "]";
+        }
+        os << "]";
+    } else {
+        // Rank-0 or rank>2: flat values + shape tag.
+        os << "[";
+        for (int64_t i = 0; i < t.numel(); ++i) os << (i ? ", " : "") << d[i];
+        os << "] (shape ";
+        for (int8_t i = 0; i < t.ndim; ++i) os << (i ? "x" : "") << t.shape[i];
+        os << ")";
+    }
+    return os.str();
+}
 
 void print_help() {
     std::cout << "Zero Compiler v0.1.0 (MPP)\n\n";
@@ -112,6 +146,8 @@ int compile_and_run(const std::string& filename, bool dump_ir) {
                 std::cout << arg.as_float();
             } else if (arg.is_str()) {
                 std::cout << arg.as_str();
+            } else if (arg.is_tensor()) {
+                std::cout << format_tensor(*arg.as_tensor());
             }
         }
         std::cout << "\n";

@@ -268,6 +268,29 @@ void Sema::check_stmt(ast::Stmt& stmt) {
             
             declare(s.name, var_type, s.span);
         }
+        else if constexpr (std::is_same_v<T, ast::AssignStmt>) {
+            // Assignment requires a prior declaration (unlike `let`).
+            auto existing = lookup(s.name);
+            types::Type val_type = types::Type::make_unknown();
+            std::optional<Shape> sh;
+            if (s.value) {
+                val_type = check_expr(*s.value);
+                sh = infer_shape(*s.value);   // also emits any shape mismatch
+            }
+            if (!existing) {
+                error(ErrorKind::UNDEFINED_VARIABLE,
+                      "Assignment to undefined variable: " + s.name, s.span);
+            } else if (!val_type.is_unknown()
+                       && !types::types_compatible(*existing, val_type)) {
+                error(ErrorKind::TYPE_MISMATCH,
+                      "Type mismatch in assignment to '" + s.name + "': expected " +
+                      existing->to_string() + ", got " + val_type.to_string(), s.span);
+            }
+            // Refresh tracked literal-derived shape (or drop it if now unknown,
+            // so a stale shape can't trigger a false mismatch later).
+            if (sh) var_shapes_[s.name] = *sh;
+            else    var_shapes_.erase(s.name);
+        }
         else if constexpr (std::is_same_v<T, ast::ReturnStmt>) {
             types::Type ret_type = types::Type::make_void();
             if (s.value) {

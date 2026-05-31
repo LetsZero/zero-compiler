@@ -97,6 +97,7 @@ private:
     // Statements
     std::unique_ptr<ast::Stmt> parse_stmt();
     std::unique_ptr<ast::Stmt> parse_let_stmt();
+    std::unique_ptr<ast::Stmt> parse_assign_stmt();
     std::unique_ptr<ast::Stmt> parse_return_stmt();
     std::unique_ptr<ast::Stmt> parse_if_stmt();
     std::unique_ptr<ast::Stmt> parse_while_stmt();

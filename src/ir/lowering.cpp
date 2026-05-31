@@ -23,6 +23,29 @@ static types::Type ast_to_type(ast::TypeKind kind) {
     }
 }
 
+// Collect the names reassigned anywhere in a statement list (recursing into
+// nested control-flow bodies). Assignment is a statement, never nested inside
+// an expression, so only compound statements need recursion.
+static void collect_mutated(const std::vector<std::unique_ptr<ast::Stmt>>& stmts,
+                            std::unordered_set<std::string>& out) {
+    for (const auto& sp : stmts) {
+        if (!sp) continue;
+        std::visit([&out](const auto& s) {
+            using T = std::decay_t<decltype(s)>;
+            if constexpr (std::is_same_v<T, ast::AssignStmt>) {
+                out.insert(s.name);
+            } else if constexpr (std::is_same_v<T, ast::IfStmt>) {
+                collect_mutated(s.then_branch, out);
+                collect_mutated(s.else_branch, out);
+            } else if constexpr (std::is_same_v<T, ast::WhileStmt>) {
+                collect_mutated(s.body, out);
+            } else if constexpr (std::is_same_v<T, ast::Block>) {
+                collect_mutated(s.stmts, out);
+            }
+        }, sp->data);
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Lowering Implementation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,11 +93,24 @@ void Lowering::lower_function(Module& mod, ast::FnDecl& fn_ast) {
     // — the interpreter binds incoming call args to fn.params[i]), and
     // add them to the lowering's symbol table by name.
     symbols_.clear();
+    cell_vars_.clear();
+    collect_mutated(fn_ast.body, cell_vars_);
+
     fn.params.clear();
     for (size_t i = 0; i < fn_ast.params.size(); ++i) {
         Value param_val = fn.new_value(param_types[i]);
         fn.params.push_back(param_val);
-        symbols_[fn_ast.params[i].name] = param_val;
+        const std::string& pname = fn_ast.params[i].name;
+        if (cell_vars_.count(pname)) {
+            // A reassigned parameter gets a memory cell initialised from the
+            // incoming argument, so later writes are visible across blocks.
+            builder.set_current_span(fn_ast.params[i].span);
+            Value slot = builder.alloca(param_types[i]);
+            builder.store(slot, param_val);
+            symbols_[pname] = slot;
+        } else {
+            symbols_[pname] = param_val;
+        }
     }
 
     // Lower body statements
@@ -106,7 +142,27 @@ void Lowering::lower_stmt(IRBuilder& builder, ast::Stmt& stmt) {
         if constexpr (std::is_same_v<T, ast::LetStmt>) {
             if (s.init) {
                 Value init_val = lower_expr(builder, *s.init);
-                symbols_[s.name] = init_val;
+                if (cell_vars_.count(s.name)) {
+                    // Mutated local: store the initial value into a fresh cell.
+                    Value slot = builder.alloca(init_val.type);
+                    builder.store(slot, init_val);
+                    symbols_[s.name] = slot;
+                } else {
+                    symbols_[s.name] = init_val;
+                }
+            }
+        }
+        else if constexpr (std::is_same_v<T, ast::AssignStmt>) {
+            if (s.value) {
+                Value v = lower_expr(builder, *s.value);
+                auto it = symbols_.find(s.name);
+                // The target is always a cell (it appears as an assignment
+                // target, so collect_mutated put it in cell_vars_). Write
+                // through the cell pointer. Undefined names were already
+                // reported by sema; skip them here.
+                if (it != symbols_.end()) {
+                    builder.store(it->second, v);
+                }
             }
         }
         else if constexpr (std::is_same_v<T, ast::ReturnStmt>) {
@@ -147,6 +203,12 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
         if constexpr (std::is_same_v<T, ast::Identifier>) {
             auto it = symbols_.find(e.name);
             if (it != symbols_.end()) {
+                // A mutated variable is held in a memory cell — read its
+                // current value with a LOAD. Non-mutated variables bind
+                // directly to their SSA value (unchanged lowering).
+                if (cell_vars_.count(e.name)) {
+                    return builder.load(it->second);
+                }
                 return it->second;
             }
             // Undefined variable - return invalid value

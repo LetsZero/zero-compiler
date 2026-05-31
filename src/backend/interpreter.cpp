@@ -380,17 +380,30 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
         }
             
         case OpCode::ALLOCA:
-            // For now, just create a placeholder
-            result = RuntimeValue(static_cast<int64_t>(0));
+            // Create a memory cell for a mutable variable, identified by this
+            // instruction's result id. The "pointer" value itself is never
+            // read directly — load/store address the cell by operand id.
+            if (!call_stack_.empty()) {
+                call_stack_.back().memory[instr.result.id] = RuntimeValue{};
+            }
             break;
-            
-        case OpCode::LOAD:
-            // Simplified: return the operand value
-            result = get_value(instr.operands[0]);
+
+        case OpCode::LOAD: {
+            // Read the cell named by the pointer operand (an ALLOCA result).
+            if (!call_stack_.empty()) {
+                auto& mem = call_stack_.back().memory;
+                auto it = mem.find(instr.operands[0].id);
+                if (it != mem.end()) result = it->second;
+            }
             break;
-            
+        }
+
         case OpCode::STORE:
-            // For now, no-op
+            // Write the value operand into the cell named by the pointer operand.
+            if (!call_stack_.empty()) {
+                call_stack_.back().memory[instr.operands[0].id] =
+                    get_value(instr.operands[1]);
+            }
             break;
             
         // Tensor ops — spec 003 wires TENSOR_CONST_F32 and TENSOR_ADD to
