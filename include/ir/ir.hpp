@@ -117,6 +117,12 @@ enum class OpCode {
     // in declaration order). STRUCT_GET extracts field #imm_int from operand 0.
     STRUCT_NEW,
     STRUCT_GET,
+
+    // Element-level tensor indexing (flat / row-major).
+    // TENSOR_INDEX_GET: result = float at op0[op1].
+    // TENSOR_INDEX_SET: op0[op1] = op2 (in-place; mutates the tensor buffer).
+    TENSOR_INDEX_GET,
+    TENSOR_INDEX_SET,
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -163,6 +169,8 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::TENSOR_STEP: return "tensor.step";
         case OpCode::STRUCT_NEW: return "struct.new";
         case OpCode::STRUCT_GET: return "struct.get";
+        case OpCode::TENSOR_INDEX_GET: return "tensor.index.get";
+        case OpCode::TENSOR_INDEX_SET: return "tensor.index.set";
         default: return "unknown";
     }
 }

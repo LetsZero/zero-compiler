@@ -300,6 +300,15 @@ set_target_properties(test_struct PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Element-level tensor indexing (t[i] read / write).
+add_executable(test_indexing
+    test_indexing.cpp
+)
+target_link_libraries(test_indexing PRIVATE zerobackend zerosema)
+set_target_properties(test_indexing PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -346,3 +355,4 @@ add_test(NAME ZeroRuntimeBridgeTest COMMAND test_runtime_bridge)
 add_test(NAME ZeroRobustnessTest COMMAND test_robustness)
 add_test(NAME ZeroAssignmentTest COMMAND test_assignment)
 add_test(NAME ZeroStructTest COMMAND test_struct)
+add_test(NAME ZeroIndexingTest COMMAND test_indexing)

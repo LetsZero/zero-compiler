@@ -633,6 +633,40 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             break;
         }
 
+        // ─── Element-level tensor indexing (flat / row-major).
+        case OpCode::TENSOR_INDEX_GET: {
+            RuntimeValue tv = get_value(instr.operands[0]);
+            RuntimeValue iv = get_value(instr.operands[1]);
+            if (!tv.is_tensor()) throw std::runtime_error("tensor_index_get: non-tensor target");
+            const TensorPtr& t = tv.as_tensor();
+            int64_t idx = iv.to_int();
+            int64_t n = t->numel();
+            if (idx < 0 || idx >= n) {
+                std::ostringstream m;
+                m << "tensor index out of range: " << idx << " not in [0, " << n << ")";
+                throw std::runtime_error(m.str());
+            }
+            result = RuntimeValue(static_cast<double>(static_cast<float*>(t->data)[idx]));
+            break;
+        }
+
+        case OpCode::TENSOR_INDEX_SET: {
+            RuntimeValue tv = get_value(instr.operands[0]);
+            RuntimeValue iv = get_value(instr.operands[1]);
+            RuntimeValue vv = get_value(instr.operands[2]);
+            if (!tv.is_tensor()) throw std::runtime_error("tensor_index_set: non-tensor target");
+            const TensorPtr& t = tv.as_tensor();
+            int64_t idx = iv.to_int();
+            int64_t n = t->numel();
+            if (idx < 0 || idx >= n) {
+                std::ostringstream m;
+                m << "tensor index out of range: " << idx << " not in [0, " << n << ")";
+                throw std::runtime_error(m.str());
+            }
+            static_cast<float*>(t->data)[idx] = static_cast<float>(vv.to_float());
+            break;
+        }
+
         // ─── Struct construction / field access.
         case OpCode::STRUCT_NEW: {
             auto sv = std::make_shared<StructVal>();

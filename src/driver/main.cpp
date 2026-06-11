@@ -120,7 +120,11 @@ int compile_and_run(const std::string& filename, bool dump_ir) {
     ast::Program prog = parser.parse();
     
     if (parser.had_error()) {
-        print_error("Parse errors occurred");
+        for (const auto& err : parser.errors()) {
+            auto [line, col] = sm.get_line_col(err.span);
+            std::cerr << "\033[31merror:\033[0m " << err.message
+                      << " (line " << line << ", col " << col << ")\n";
+        }
         return 1;
     }
     

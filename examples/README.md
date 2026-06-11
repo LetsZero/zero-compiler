@@ -82,6 +82,15 @@ First use of `struct`: a `Param { value, grad }` bundles a weight with its
 gradient — the shape autograd will use. Trains a 3-feature regression; `value`
 converges toward `[1, 2, 3]`.
 
+### 11. list_in_zero.zero
+
+**The erosion rule, applied to data structures.** A growable `List` written
+entirely in Zero — backed by a tensor (storage) and a length tensor (count),
+with `push` and `get` as ordinary Zero functions. The compiler has no concept
+of a "list"; it sees only `Struct` + `Tensor` + element indexing (`t[i]`,
+`t[i] = x`). This is the same pattern `EROSION_RULES.md` describes for List,
+proven working.
+
 ## Language Features
 
 ```zero

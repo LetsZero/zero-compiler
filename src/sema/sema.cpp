@@ -286,6 +286,25 @@ void Sema::check_stmt(ast::Stmt& stmt) {
             
             declare(s.name, var_type, s.span);
         }
+        else if constexpr (std::is_same_v<T, ast::IndexAssignStmt>) {
+            types::Type tgt_t = s.target ? check_expr(*s.target) : types::Type::make_unknown();
+            types::Type idx_t = s.index  ? check_expr(*s.index)  : types::Type::make_unknown();
+            types::Type val_t = s.value  ? check_expr(*s.value)  : types::Type::make_unknown();
+            if (!tgt_t.is_unknown() && !tgt_t.is_tensor()) {
+                error(ErrorKind::TYPE_MISMATCH,
+                      "element assignment target must be a tensor, got " +
+                      tgt_t.to_string(), s.span);
+            }
+            if (!idx_t.is_unknown() && !idx_t.is_numeric()) {
+                error(ErrorKind::TYPE_MISMATCH,
+                      "index must be numeric, got " + idx_t.to_string(), s.span);
+            }
+            if (!val_t.is_unknown() && !val_t.is_numeric()) {
+                error(ErrorKind::TYPE_MISMATCH,
+                      "assigned value must be a scalar number, got " + val_t.to_string(), s.span);
+            }
+            // Element write does not change the target's *type* or *shape*.
+        }
         else if constexpr (std::is_same_v<T, ast::AssignStmt>) {
             // Assignment requires a prior declaration (unlike `let`).
             auto existing = lookup(s.name);
@@ -484,6 +503,22 @@ types::Type Sema::check_expr(ast::Expr& expr) {
             }
             
             return sig.return_type;
+        }
+        else if constexpr (std::is_same_v<T, ast::IndexExpr>) {
+            types::Type obj = e.object ? check_expr(*e.object) : types::Type::make_unknown();
+            types::Type idx = e.index  ? check_expr(*e.index)  : types::Type::make_unknown();
+            if (!obj.is_unknown() && !obj.is_tensor()) {
+                error(ErrorKind::TYPE_MISMATCH,
+                      "element index '[]' requires a tensor, got " + obj.to_string(), e.span);
+            }
+            // Index must be numeric. Floats are accepted and truncated — Zero
+            // tensors carry F32 today, so `t[0]` and `t[i]` (i read from a
+            // tensor element) both come back as float and are common shapes.
+            if (!idx.is_unknown() && !idx.is_numeric()) {
+                error(ErrorKind::TYPE_MISMATCH,
+                      "index must be numeric, got " + idx.to_string(), e.span);
+            }
+            return types::Type::make_float();
         }
         else if constexpr (std::is_same_v<T, ast::FieldAccess>) {
             types::Type obj = e.object ? check_expr(*e.object) : types::Type::make_unknown();

@@ -282,6 +282,23 @@ public:
         return instr.result;
     }
 
+    // Element-level tensor indexing (flat).
+    Value tensor_index_get(Value tensor_v, Value index_v) {
+        Instruction instr;
+        instr.op = OpCode::TENSOR_INDEX_GET;
+        instr.result = fn_.new_value(types::Type::make_float());
+        instr.operands = {tensor_v, index_v};
+        emit(instr);
+        return instr.result;
+    }
+
+    void tensor_index_set(Value tensor_v, Value index_v, Value value_v) {
+        Instruction instr;
+        instr.op = OpCode::TENSOR_INDEX_SET;
+        instr.operands = {tensor_v, index_v, value_v};
+        emit(instr);
+    }
+
 private:
     Function& fn_;
     uint32_t current_block_id_;

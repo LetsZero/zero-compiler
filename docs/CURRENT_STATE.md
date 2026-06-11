@@ -6,7 +6,7 @@
 
 **As of:** Phase 0 complete (spec 019) + robustness hardening + first Phase-1
 substrate (assignment, CLI tensor output). CI green on Linux + macOS,
-**30/30** tests.
+**31/31** tests.
 
 ---
 
@@ -40,6 +40,11 @@ no GPU.
 - **Interpreter:** executes against the frozen runtime; per-frame value storage
   (recursion-safe); `Status` errors surfaced as source-spanned `RuntimeError`
   diagnostics.
+- **Element-level tensor indexing:** `t[i]` (read; yields a scalar float) and
+  `t[i] = x` (in-place write into the tensor's flat / row-major buffer). The
+  index target can be an identifier *or* a chain (`l.data[n] = x`). This is the
+  primitive that lets `List`/`Dict` be written *in Zero* on top of `Struct` +
+  `Tensor` (see `examples/list_in_zero.zero`) — they are not compiler types.
 - **Structs:** `struct Name { f: tensor, ... }`; positional construction
   `Name(a, b)`; field read `p.f`; struct-typed variables, params, and returns;
   structs in mutable cells (reassign in a loop). Sema checks field count, field
@@ -68,7 +73,7 @@ no GPU.
   cleaner diagnostics for scalar–tensor ops, matmul rank errors, integer
   overflow, and non-scalar conditions. All locked in by `tests/test_robustness.cpp`
   (`ZeroRobustnessTest`, 13 cases). Full writeup: [PHASE0_ROBUSTNESS_FINDINGS.md](PHASE0_ROBUSTNESS_FINDINGS.md).
-- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 30 test binaries
+- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 31 test binaries
   (ctest auto-discovers registered tests — no per-test wiring needed).
 
 ## What does NOT exist yet (the honest gaps)
@@ -100,7 +105,7 @@ no GPU.
 1. **Read, in order:** [CLAUDE.md](../CLAUDE.md) (inviolable rules), this file,
    [ROADMAP.md](ROADMAP.md), [DEFERRED.md](DEFERRED.md).
 2. **Build & test:** `cmake -B build && cmake --build build --parallel && ctest --test-dir build`
-   (expect 30/30). The submodule must be initialised:
+   (expect 31/31). The submodule must be initialised:
    `git submodule update --init --recursive`.
 3. **Workflow:** spec-driven. Every change starts with an approved
    `docs/specs/NNN-*.md` (template in `docs/specs/_TEMPLATE.md`); tests written

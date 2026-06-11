@@ -1,0 +1,49 @@
+// list_in_zero.zero — a growable List, written in Zero itself.
+//
+// This is the erosion rule in action: List is NOT a compiler primitive. It is
+// ordinary Zero code, built from Struct (declared inline) + Tensor (the
+// storage) + element indexing (the only new piece). The compiler never sees a
+// "List" type — only the tensor and struct primitives it already understood.
+//
+// Run:  zeroc examples/list_in_zero.zero
+
+struct List {
+    data: tensor,     // capacity-sized backing storage
+    length: tensor,   // [1] tensor holding the current length (mutable in place)
+}
+
+// Construct an empty list backed by a `cap`-element tensor of zeros.
+// (Without a `zeros(n)` builtin yet, the demo passes its own backing tensor.)
+fn list_new(backing: tensor) -> List {
+    return List(backing, tensor([0.0]))
+}
+
+// Append x to the end of the list.
+fn push(l: List, x: tensor) -> List {
+    let n = l.length[0]
+    l.data[n] = x[0]
+    l.length[0] = n + 1.0
+    return l
+}
+
+// Read element i (returns it inside a [1] tensor so we can keep printing it).
+fn get(l: List, i: tensor) -> tensor {
+    let out = tensor([0.0])
+    out[0] = l.data[i[0]]
+    return out
+}
+
+fn main() {
+    let l = list_new(tensor([0.0, 0.0, 0.0, 0.0]))     // capacity 4
+
+    l = push(l, tensor([10.0]))
+    l = push(l, tensor([20.0]))
+    l = push(l, tensor([30.0]))
+
+    print("length:", l.length)        // [3]
+    print("data:  ", l.data)          // [10, 20, 30, 0]
+    print("l[0]:  ", get(l, tensor([0])))
+    print("l[1]:  ", get(l, tensor([1])))
+    print("l[2]:  ", get(l, tensor([2])))
+    return 0
+}

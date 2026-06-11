@@ -163,6 +163,19 @@ void Lowering::lower_stmt(IRBuilder& builder, ast::Stmt& stmt) {
                 }
             }
         }
+        else if constexpr (std::is_same_v<T, ast::IndexAssignStmt>) {
+            // `target[idx] = value` — in-place element write. We evaluate the
+            // target expression to a tensor SSA value (load/field-access/etc.
+            // all reduce to that), then emit TENSOR_INDEX_SET. The write
+            // mutates the buffer through the tensor's shared_ptr; the tensor's
+            // identity / SSA binding is unchanged.
+            if (s.target && s.index && s.value) {
+                Value tgt = lower_expr(builder, *s.target);
+                Value idx = lower_expr(builder, *s.index);
+                Value val = lower_expr(builder, *s.value);
+                builder.tensor_index_set(tgt, idx, val);
+            }
+        }
         else if constexpr (std::is_same_v<T, ast::AssignStmt>) {
             if (s.value) {
                 Value v = lower_expr(builder, *s.value);
@@ -320,6 +333,11 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
                 ? ret_it->second
                 : types::Type::make_void();
             return builder.call(e.callee, args, ret_type);
+        }
+        else if constexpr (std::is_same_v<T, ast::IndexExpr>) {
+            Value obj = e.object ? lower_expr(builder, *e.object) : Value{};
+            Value idx = e.index  ? lower_expr(builder, *e.index)  : Value{};
+            return builder.tensor_index_get(obj, idx);
         }
         else if constexpr (std::is_same_v<T, ast::FieldAccess>) {
             Value obj = e.object ? lower_expr(builder, *e.object) : Value{};

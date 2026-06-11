@@ -294,11 +294,45 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
     if (check(TokenType::WHILE)) return parse_while_stmt();
     if (check(TokenType::LBRACE)) return parse_block();
 
-    // Assignment: `name = expr`. Disambiguated from an expression statement by
-    // one token of lookahead — an IDENT immediately followed by '=' (a single
-    // '=', not '==', which lexes as EQ_EQ).
-    if (check(TokenType::IDENT) && lexer_.peek().type == TokenType::EQ) {
-        return parse_assign_stmt();
+    // A statement that starts with an identifier MAY be an assignment:
+    //   name = expr            -> AssignStmt
+    //   target[idx] = expr     -> IndexAssignStmt   (target may be name OR
+    //                                                l.data, get(...).buf, …)
+    // Parse the LHS as an expression, then decide based on what came out and
+    // whether '=' follows.
+    if (check(TokenType::IDENT)) {
+        Span start = current_.span;
+        auto e = parse_expr();
+        if (e && check(TokenType::EQ)) {
+            if (e->is<Identifier>()) {
+                AssignStmt as;
+                as.name = e->as<Identifier>().name;
+                advance();   // consume '='
+                as.value = parse_expr();
+                match(TokenType::SEMICOLON);
+                as.span = start.merge(previous_.span);
+                return make_stmt(std::move(as));
+            }
+            if (e->is<IndexExpr>()) {
+                auto& ix = e->as<IndexExpr>();
+                IndexAssignStmt as;
+                as.target = std::move(ix.object);
+                as.index = std::move(ix.index);
+                advance();   // consume '='
+                as.value = parse_expr();
+                match(TokenType::SEMICOLON);
+                as.span = start.merge(previous_.span);
+                return make_stmt(std::move(as));
+            }
+            // Other LHS shapes (a field access, a call) are not assignable.
+            error("left-hand side is not assignable");
+            // Fall through as an expr stmt to keep recovery sane.
+        }
+        ExprStmt es;
+        es.expr = std::move(e);
+        match(TokenType::SEMICOLON);
+        if (es.expr) es.span = es.expr->span();
+        return make_stmt(std::move(es));
     }
 
     return parse_expr_stmt();
@@ -332,19 +366,9 @@ std::unique_ptr<Stmt> Parser::parse_let_stmt() {
     return make_stmt(std::move(let));
 }
 
-std::unique_ptr<Stmt> Parser::parse_assign_stmt() {
-    AssignStmt assign;
-    assign.span = current_.span;
-
-    assign.name = std::string(current_.text);
-    advance();  // consume IDENT
-    consume(TokenType::EQ, "Expected '=' in assignment");
-    assign.value = parse_expr();
-
-    match(TokenType::SEMICOLON);
-    assign.span = assign.span.merge(previous_.span);
-    return make_stmt(std::move(assign));
-}
+// (parse_assign_stmt removed — the parse_stmt path handles all assignments
+//  uniformly by parsing the LHS as an expression and checking for '='.)
+std::unique_ptr<Stmt> Parser::parse_assign_stmt() { return nullptr; }
 
 std::unique_ptr<Stmt> Parser::parse_return_stmt() {
     ReturnStmt ret;
@@ -590,6 +614,20 @@ std::unique_ptr<Expr> Parser::parse_call() {
             fa.span = (expr ? expr->span() : field_span).merge(field_span);
             fa.object = std::move(expr);
             expr = make_expr(std::move(fa));
+        }
+        else if (check(TokenType::LBRACKET)) {
+            // Element index: `obj[idx]`. Postfix in the same chain as call /
+            // field access so `f().x[i]` etc. all parse.
+            Span start = expr ? expr->span() : current_.span;
+            advance();   // consume '['
+            skip_newlines();
+            IndexExpr ix;
+            ix.object = std::move(expr);
+            ix.index = parse_expr();
+            skip_newlines();
+            consume(TokenType::RBRACKET, "Expected ']' after index");
+            ix.span = start.merge(previous_.span);
+            expr = make_expr(std::move(ix));
         }
         else {
             break;

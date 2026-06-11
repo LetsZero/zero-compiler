@@ -135,6 +135,14 @@ struct FieldAccess {
     source::Span span;
 };
 
+// Element index read: `object[index]`. The object is a tensor; index is an
+// integer (flat, row-major). Yields a scalar float.
+struct IndexExpr {
+    std::unique_ptr<Expr> object;
+    std::unique_ptr<Expr> index;
+    source::Span span;
+};
+
 // 1-D F32 tensor literal: `tensor([1.0, 2.0, 3.0])` (spec 004).
 // Integer elements are widened to float in lowering.
 struct TensorLiteral {
@@ -157,7 +165,8 @@ using ExprVariant = std::variant<
     CallExpr,
     GroupExpr,
     TensorLiteral,
-    FieldAccess
+    FieldAccess,
+    IndexExpr
 >;
 
 struct Expr {
@@ -190,6 +199,17 @@ struct LetStmt {
 // (which declares). Enables mutation and makes `while` loops useful.
 struct AssignStmt {
     std::string name;
+    std::unique_ptr<Expr> value;
+    source::Span span;
+};
+
+// In-place element write: `target[index] = value`. The target expression
+// produces the tensor to mutate (commonly an identifier or a field access),
+// index is numeric, value is a scalar number. The element write does not
+// replace any variable binding — it mutates the tensor's buffer in place.
+struct IndexAssignStmt {
+    std::unique_ptr<Expr> target;
+    std::unique_ptr<Expr> index;
     std::unique_ptr<Expr> value;
     source::Span span;
 };
@@ -229,6 +249,7 @@ struct Block {
 using StmtVariant = std::variant<
     LetStmt,
     AssignStmt,
+    IndexAssignStmt,
     ReturnStmt,
     ExprStmt,
     IfStmt,
