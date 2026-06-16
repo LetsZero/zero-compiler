@@ -49,8 +49,14 @@ using TensorPtr = std::shared_ptr<zero::Tensor>;
 struct StructVal;
 using StructPtr = std::shared_ptr<StructVal>;
 
+// A tensor-array is a runtime-indexable, mutable vector of tensors. shared_ptr
+// gives it reference semantics: passing it into a Zero function and mutating it
+// there (ta_set) is visible to the caller — exactly what an autograd tape/pool
+// needs. Slots start null; ta_set fills them.
+using TensorArrayPtr = std::shared_ptr<std::vector<TensorPtr>>;
+
 struct RuntimeValue {
-    std::variant<std::monostate, int64_t, double, void*, std::string, TensorPtr, StructPtr> data;
+    std::variant<std::monostate, int64_t, double, void*, std::string, TensorPtr, StructPtr, TensorArrayPtr> data;
 
     RuntimeValue() : data(std::monostate{}) {}
     explicit RuntimeValue(int64_t v) : data(v) {}
@@ -59,6 +65,7 @@ struct RuntimeValue {
     explicit RuntimeValue(const std::string& v) : data(v) {}
     explicit RuntimeValue(TensorPtr t) : data(std::move(t)) {}
     explicit RuntimeValue(StructPtr s) : data(std::move(s)) {}
+    explicit RuntimeValue(TensorArrayPtr a) : data(std::move(a)) {}
 
     bool is_void() const { return std::holds_alternative<std::monostate>(data); }
     bool is_int() const { return std::holds_alternative<int64_t>(data); }
@@ -67,6 +74,7 @@ struct RuntimeValue {
     bool is_str() const { return std::holds_alternative<std::string>(data); }
     bool is_tensor() const { return std::holds_alternative<TensorPtr>(data); }
     bool is_struct() const { return std::holds_alternative<StructPtr>(data); }
+    bool is_tensor_array() const { return std::holds_alternative<TensorArrayPtr>(data); }
 
     int64_t as_int() const { return std::get<int64_t>(data); }
     double as_float() const { return std::get<double>(data); }
@@ -74,6 +82,7 @@ struct RuntimeValue {
     const std::string& as_str() const { return std::get<std::string>(data); }
     const TensorPtr& as_tensor() const { return std::get<TensorPtr>(data); }
     const StructPtr& as_struct() const { return std::get<StructPtr>(data); }
+    const TensorArrayPtr& as_tensor_array() const { return std::get<TensorArrayPtr>(data); }
     
     // Convert to int for comparisons
     int64_t to_int() const {

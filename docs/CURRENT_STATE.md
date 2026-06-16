@@ -4,9 +4,10 @@
 > "where are we right now" snapshot. For the plan and the per-feature history,
 > see [ROADMAP.md](ROADMAP.md) and [docs/specs/](specs/).
 
-**As of:** Phase 0 complete (spec 019) + robustness hardening + first Phase-1
-substrate (assignment, CLI tensor output). CI green on Linux + macOS,
-**31/31** tests.
+**As of:** Phase 0 complete (spec 019) + robustness hardening + Phase-1
+substrate (assignment, CLI tensor output, structs, element indexing) +
+**reverse-mode autograd written in Zero** (on a single `tensorarray`
+primitive). CI green on Linux + macOS, **33/33** tests.
 
 ---
 
@@ -20,11 +21,14 @@ primitive. The language can express and execute a real forward pass.
 
 What it is: a **tree-walking interpreter** for a small ML-native language,
 targeting the frozen Core Runtime **v1.4.0**.
-It can also **train** models with *hand-written* backward passes (see the
-`examples/train_*.zero` — scalar/feature regression, a matmul layer, and a
-2-layer MLP with manual backprop). What it is **not** yet: no **autograd**
-(gradients are hand-written today), no LLVM/native codegen (interpreter only),
-no GPU.
+It can also **train** models — both with *hand-written* backward passes (the
+`examples/train_*.zero`) and, now, with **reverse-mode autograd written
+entirely in Zero** (`examples/autograd_mlp.zero`): the same 2-layer MLP trains
+to the same target with no hand-written backward. The autograd tape rides on a
+single new primitive — `tensorarray`, a runtime-indexable collection of tensors
+(the one autograd substrate that genuinely can't be composed from
+Tensor+Struct). What it is **not** yet: no LLVM/native codegen (interpreter
+only), no GPU.
 
 ---
 
@@ -40,6 +44,16 @@ no GPU.
 - **Interpreter:** executes against the frozen runtime; per-frame value storage
   (recursion-safe); `Status` errors surfaced as source-spanned `RuntimeError`
   diagnostics.
+- **Tensor-array primitive + autograd in Zero:** `tensorarray(n)` /
+  `ta_get(p, k)` / `ta_set(p, k, t)` — a runtime-indexable, mutable collection
+  of whole tensors (`TypeKind::TENSOR_ARRAY`; IR `TENSOR_ARRAY_NEW/GET/SET`;
+  interpreter-level state, reference semantics). It is the *one* autograd
+  substrate that can't be composed from Tensor+Struct. On top of it,
+  reverse-mode autograd is written **in Zero** (`examples/autograd_mlp.zero`):
+  a `Tape` struct + integer Var handles + a tagged tape walked in reverse with
+  a tag dispatch (no closures). The compiler has no notion of "autograd." Locked
+  by `tests/test_tensor_array.cpp` (10) and `tests/test_autograd.cpp` (5:
+  per-rule gradient checks for matmul/relu/sub/mul/sum + MLP convergence).
 - **Element-level tensor indexing:** `t[i]` (read; yields a scalar float) and
   `t[i] = x` (in-place write into the tensor's flat / row-major buffer). The
   index target can be an identifier *or* a chain (`l.data[n] = x`). This is the
@@ -73,14 +87,16 @@ no GPU.
   cleaner diagnostics for scalar–tensor ops, matmul rank errors, integer
   overflow, and non-scalar conditions. All locked in by `tests/test_robustness.cpp`
   (`ZeroRobustnessTest`, 13 cases). Full writeup: [PHASE0_ROBUSTNESS_FINDINGS.md](PHASE0_ROBUSTNESS_FINDINGS.md).
-- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 31 test binaries
+- **CI:** GitHub Actions, ubuntu + macos, every push/PR. 33 test binaries
   (ctest auto-discovers registered tests — no per-test wiring needed).
 
 ## What does NOT exist yet (the honest gaps)
 
-- **Autograd.** Training works only with *hand-written* gradients today (the
-  `train_*.zero` examples). Automatic differentiation (runtime-tape) is the
-  Phase-1 headline and is not built yet.
+- **Autograd breadth.** Reverse-mode autograd *exists* (in Zero) but its
+  backward rules cover only the five ops the MLP uses (`matmul`, `relu`, `sub`,
+  `mul`, `sum`). Adding an op is one forward wrapper + one `else if`. No
+  `requires_grad`/`detach`, higher-order grads, or graph optimization. Tape
+  capacity is fixed per step (rebuilt each step, PyTorch-style dynamic graph).
 - **LLVM / native codegen.** Tree-walking interpreter only — not fast, not deployable.
 - **GPU / MLIR.**
 - **Multi-dtype compute.** F32 only (the runtime's fp8/bf16 enums don't compute).
@@ -105,16 +121,17 @@ no GPU.
 1. **Read, in order:** [CLAUDE.md](../CLAUDE.md) (inviolable rules), this file,
    [ROADMAP.md](ROADMAP.md), [DEFERRED.md](DEFERRED.md).
 2. **Build & test:** `cmake -B build && cmake --build build --parallel && ctest --test-dir build`
-   (expect 31/31). The submodule must be initialised:
+   (expect 33/33). The submodule must be initialised:
    `git submodule update --init --recursive`.
 3. **Workflow:** spec-driven. Every change starts with an approved
    `docs/specs/NNN-*.md` (template in `docs/specs/_TEMPLATE.md`); tests written
    from the spec; "Out of scope" is binding; commit with the amendment log updated;
    push and confirm CI green on both platforms.
-4. **Next work = Phase 1.** Not yet planned in detail. Per the ROADMAP and the
-   runtime's `NEXT_STEPS.md`: **autograd first** (runtime-tape, forward then
-   backward), **then LLVM CPU codegen**. Phase 1 deserves its own roadmap doc
-   (4–6 specs) before coding starts — mirror this Phase-0 ROADMAP's structure.
+4. **Next work = Phase 1, continued.** Autograd (the Phase-1 headline) now
+   exists, in Zero, on the `tensorarray` primitive. Remaining Phase-1 arc per
+   the ROADMAP and the runtime's `NEXT_STEPS.md`: broaden autograd's op coverage
+   as needed, then **LLVM CPU codegen**. Phase 1 still deserves its own roadmap
+   doc (mirror the Phase-0 ROADMAP structure) before the codegen work starts.
 
 ---
 

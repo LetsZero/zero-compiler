@@ -22,6 +22,7 @@ static types::Type ast_to_types(const ast::Type& t) {
         case ast::TypeKind::VOID: return types::Type::make_void();
         case ast::TypeKind::TENSOR: return types::Type::make_tensor();
         case ast::TypeKind::STRUCT: return types::Type::make_struct(t.name);
+        case ast::TypeKind::TENSOR_ARRAY: return types::Type::make_tensor_array();
         default: return types::Type::make_unknown();
     }
 }
@@ -208,6 +209,29 @@ void Sema::register_builtins() {
         sig.return_type = types::Type::make_tensor();
         sig.is_variadic = true;
         functions_[name] = sig;
+    }
+
+    // Tensor-array intrinsics (the autograd substrate). Dispatched to the
+    // TENSOR_ARRAY_* opcodes at lowering. Variadic for now (arity/types are
+    // enforced by lowering + the interpreter); the return types matter so
+    // `let pool = tensorarray(n)` and `let t = ta_get(pool, k)` infer correctly.
+    //   tensorarray(count)        -> tensorarray
+    //   ta_get(arr, index)        -> tensor
+    //   ta_set(arr, index, value) -> void
+    {
+        FnSignature s; s.name = "tensorarray";
+        s.return_type = types::Type::make_tensor_array(); s.is_variadic = true;
+        functions_["tensorarray"] = s;
+    }
+    {
+        FnSignature s; s.name = "ta_get";
+        s.return_type = types::Type::make_tensor(); s.is_variadic = true;
+        functions_["ta_get"] = s;
+    }
+    {
+        FnSignature s; s.name = "ta_set";
+        s.return_type = types::Type::make_void(); s.is_variadic = true;
+        functions_["ta_set"] = s;
     }
 }
 

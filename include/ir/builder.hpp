@@ -299,6 +299,38 @@ public:
         emit(instr);
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Tensor-array (the autograd substrate; see ir.hpp)
+    // ─────────────────────────────────────────────────────────────────────
+
+    // Allocate a tensor-array with `count` null slots.
+    Value tensor_array_new(Value count_v) {
+        Instruction instr;
+        instr.op = OpCode::TENSOR_ARRAY_NEW;
+        instr.result = fn_.new_value(types::Type::make_tensor_array());
+        instr.operands = {count_v};
+        emit(instr);
+        return instr.result;
+    }
+
+    // Fetch the tensor stored at array[index].
+    Value tensor_array_get(Value array_v, Value index_v) {
+        Instruction instr;
+        instr.op = OpCode::TENSOR_ARRAY_GET;
+        instr.result = fn_.new_value(types::Type::make_tensor());
+        instr.operands = {array_v, index_v};
+        emit(instr);
+        return instr.result;
+    }
+
+    // Store a tensor into array[index] (in-place).
+    void tensor_array_set(Value array_v, Value index_v, Value value_v) {
+        Instruction instr;
+        instr.op = OpCode::TENSOR_ARRAY_SET;
+        instr.operands = {array_v, index_v, value_v};
+        emit(instr);
+    }
+
 private:
     Function& fn_;
     uint32_t current_block_id_;

@@ -309,6 +309,24 @@ set_target_properties(test_indexing PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Tensor-array primitive (the autograd substrate).
+add_executable(test_tensor_array
+    test_tensor_array.cpp
+)
+target_link_libraries(test_tensor_array PRIVATE zerobackend zerosema)
+set_target_properties(test_tensor_array PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+# Reverse-mode autograd written in Zero — gradient correctness + convergence.
+add_executable(test_autograd
+    test_autograd.cpp
+)
+target_link_libraries(test_autograd PRIVATE zerobackend zerosema)
+set_target_properties(test_autograd PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Runtime-bridge smoke test (spec 001).
 # This test #includes <zero/zero.hpp> from the external/core-runtime
 # submodule and exercises one runtime op directly — the first end-to-end
@@ -356,3 +374,5 @@ add_test(NAME ZeroRobustnessTest COMMAND test_robustness)
 add_test(NAME ZeroAssignmentTest COMMAND test_assignment)
 add_test(NAME ZeroStructTest COMMAND test_struct)
 add_test(NAME ZeroIndexingTest COMMAND test_indexing)
+add_test(NAME ZeroTensorArrayTest COMMAND test_tensor_array)
+add_test(NAME ZeroAutogradTest COMMAND test_autograd)

@@ -136,7 +136,9 @@ int compile_and_run(const std::string& filename, bool dump_ir) {
     
     if (sema.had_error()) {
         for (const auto& err : sema.errors()) {
-            print_error(err.message);
+            auto [line, col] = sm.get_line_col(err.span);
+            std::cerr << "\033[31merror:\033[0m " << err.message
+                      << " (line " << line << ", col " << col << ")\n";
         }
         return 1;
     }

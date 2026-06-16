@@ -91,6 +91,18 @@ of a "list"; it sees only `Struct` + `Tensor` + element indexing (`t[i]`,
 `t[i] = x`). This is the same pattern `EROSION_RULES.md` describes for List,
 proven working.
 
+### 12. autograd_mlp.zero
+
+**Reverse-mode autograd, written entirely in Zero.** The same 2-layer relu MLP
+as `train_mlp.zero`, trained to the same target — but with *no hand-written
+backward pass*. A `Tape` struct holds two `tensorarray` pools (Var values +
+grads); a Var is an integer handle; forward ops record an integer tag and
+`backward` walks the tape in reverse with a tag dispatch (Zero has no closures —
+"what to do backward" is data, not behavior). The compiler has no concept of
+autograd: it sees `Struct` + `Tensor` + `tensorarray` + control flow. This is
+the erosion rule applied to the Phase-1 headline feature. See
+[../docs/AUTOGRAD_DESIGN.md](../docs/AUTOGRAD_DESIGN.md).
+
 ## Language Features
 
 ```zero

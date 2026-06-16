@@ -26,6 +26,7 @@ enum class TypeKind {
     VOID,       // No value
     TENSOR,     // Multi-dimensional array
     STRUCT,     // Named aggregate of fields
+    TENSOR_ARRAY, // Runtime-indexable collection of tensors (autograd substrate)
     FUNCTION,   // Function type (for later)
     UNKNOWN     // Placeholder / unresolved
 };
@@ -61,6 +62,7 @@ struct Type {
     static Type make_float() { return Type(TypeKind::FLOAT); }
     static Type make_void() { return Type(TypeKind::VOID); }
     static Type make_tensor() { return Type(TypeKind::TENSOR); }
+    static Type make_tensor_array() { return Type(TypeKind::TENSOR_ARRAY); }
     static Type make_unknown() { return Type(TypeKind::UNKNOWN); }
     static Type make_struct(const std::string& name) {
         Type t(TypeKind::STRUCT);
@@ -77,6 +79,7 @@ struct Type {
     bool is_void() const { return kind == TypeKind::VOID; }
     bool is_tensor() const { return kind == TypeKind::TENSOR; }
     bool is_struct() const { return kind == TypeKind::STRUCT; }
+    bool is_tensor_array() const { return kind == TypeKind::TENSOR_ARRAY; }
     bool is_numeric() const { return is_int() || is_float(); }
     bool is_unknown() const { return kind == TypeKind::UNKNOWN; }
 
@@ -105,6 +108,7 @@ struct Type {
             case TypeKind::VOID:    return "void";
             case TypeKind::TENSOR:  return "tensor";
             case TypeKind::STRUCT:  return struct_name.empty() ? "struct" : struct_name.c_str();
+            case TypeKind::TENSOR_ARRAY: return "tensorarray";
             case TypeKind::FUNCTION: return "function";
             case TypeKind::UNKNOWN: return "unknown";
             default:                return "?";
@@ -140,7 +144,14 @@ inline Type binary_result_type(const Type& left, const Type& right) {
     
     // Same types -> same result
     if (left == right) return left;
-    
+
+    // Tensor ⊗ scalar (either order) broadcasts to a tensor — this is what the
+    // runtime does (spec 017). Typing it as `tensor` (not `unknown`) lets
+    // expressions like `zeros * 0.0 + scalar` stay tensor-typed instead of
+    // collapsing to the scalar side.
+    if (left.is_tensor() && right.is_numeric()) return Type::make_tensor();
+    if (right.is_tensor() && left.is_numeric()) return Type::make_tensor();
+
     // Int + Float -> Float (promotion)
     if (left.is_numeric() && right.is_numeric()) {
         if (left.is_float() || right.is_float()) {
@@ -161,6 +172,7 @@ inline Type parse_type(const std::string& name) {
     if (name == "float") return Type::make_float();
     if (name == "void") return Type::make_void();
     if (name == "tensor") return Type::make_tensor();
+    if (name == "tensorarray") return Type::make_tensor_array();
     return Type::make_unknown();
 }
 

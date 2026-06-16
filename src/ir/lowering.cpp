@@ -20,6 +20,7 @@ static types::Type ast_to_type(const ast::Type& t) {
         case ast::TypeKind::VOID: return types::Type::make_void();
         case ast::TypeKind::TENSOR: return types::Type::make_tensor();
         case ast::TypeKind::STRUCT: return types::Type::make_struct(t.name);
+        case ast::TypeKind::TENSOR_ARRAY: return types::Type::make_tensor_array();
         default: return types::Type::make_unknown();
     }
 }
@@ -320,6 +321,18 @@ Value Lowering::lower_expr(IRBuilder& builder, ast::Expr& expr) {
             if (e.callee == "matmul" && args.size() == 2
                 && args[0].type.is_tensor() && args[1].type.is_tensor()) {
                 return builder.tensor_matmul(args[0], args[1]);
+            }
+            // Tensor-array intrinsics (autograd substrate). Dispatched by name;
+            // the operands' runtime types are validated in the interpreter.
+            if (e.callee == "tensorarray" && args.size() == 1) {
+                return builder.tensor_array_new(args[0]);
+            }
+            if (e.callee == "ta_get" && args.size() == 2) {
+                return builder.tensor_array_get(args[0], args[1]);
+            }
+            if (e.callee == "ta_set" && args.size() == 3) {
+                builder.tensor_array_set(args[0], args[1], args[2]);
+                return Value{};   // void
             }
             // Struct construction: callee is a struct name -> STRUCT_NEW with
             // the args as fields (positional, declaration order).

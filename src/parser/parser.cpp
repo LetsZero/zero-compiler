@@ -273,6 +273,7 @@ Type Parser::parse_type() {
         if (name == "int") t.kind = TypeKind::INT;
         else if (name == "float") t.kind = TypeKind::FLOAT;
         else if (name == "void") t.kind = TypeKind::VOID;
+        else if (name == "tensorarray") t.kind = TypeKind::TENSOR_ARRAY;  // autograd substrate
         else { t.kind = TypeKind::STRUCT; t.name = std::string(name); }  // struct type
     } else {
         error("Expected type");

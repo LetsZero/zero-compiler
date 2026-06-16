@@ -1,0 +1,192 @@
+// autograd_mlp.zero — reverse-mode autograd, written ENTIRELY in Zero.
+//
+// This is the falsifiable goal from docs/AUTOGRAD_DESIGN.md made real: the same
+// 2-layer relu MLP as train_mlp.zero, trained to the same target — but with NO
+// hand-written backward pass. The forward pass is written once (ad_matmul /
+// ad_relu / ad_sub / ad_mul / ad_sum); gradients are produced automatically by
+// replaying a tape in reverse. pred converges to 1.0, matching the manual
+// reference.
+//
+// How it works, and why it needs no new compiler magic beyond `tensorarray`:
+//
+//   * A Var is just an integer handle. Two tensor-arrays hold every Var's
+//     value and grad, indexed by that handle. (A tensor-array is the one
+//     autograd primitive that genuinely can't be composed from tensor+struct —
+//     see AUTOGRAD_DESIGN.md. Everything else here is ordinary Zero.)
+//   * The tape records, per op, an integer tag + the input/output handles.
+//     "What to do backward" is DATA (a tag), not a closure — Zero has none.
+//     `backward` is one loop with a dispatch on the tag (the erosion-rule
+//     pattern: closure -> tag + a free function).
+//   * Backward rules accumulate input grads from the output grad:
+//       matmul(a,b): grad_a += go @ bᵀ ;  grad_b += aᵀ @ go
+//       relu(a):     grad_a += go * step(a)        // step = relu'
+//       sub(a,b):    grad_a += go ;  grad_b += -go
+//       mul(a,b):    grad_a += go * b ;  grad_b += go * a   // elementwise
+//       sum(a):      grad_a += go[0] (broadcast to a's shape)
+//   * The graph is rebuilt fresh each step (a dynamic tape, like PyTorch).
+//
+// Run:  zeroc examples/autograd_mlp.zero
+
+// The tape. tensor-array pools for Var values/grads; four fixed-capacity
+// columns for the recorded ops; two [1] counters. Capacity 16 comfortably
+// holds this graph (10 Vars, 6 ops).
+struct Tape {
+    vals: tensorarray,   // value of Var #h
+    grads: tensorarray,  // grad  of Var #h (accumulated)
+    op: tensor,          // op tag of tape entry #k
+    ia: tensor,          // first input handle of entry #k
+    ib: tensor,          // second input handle (or 0 for unary)
+    out: tensor,         // output Var handle of entry #k
+    nvars: tensor,       // [1] live Var count (next free handle)
+    nops: tensor         // [1] recorded-op count
+}
+
+fn make_tape() -> Tape {
+    let z = tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    return Tape(tensorarray(16), tensorarray(16),
+                tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+                tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+                tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+                tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+                tensor([0.0]), tensor([0.0]))
+}
+
+// Allocate a fresh Var holding `value`; its grad starts at a zero tensor of the
+// same shape (value * 0.0 — no runtime zeros() constructor needed).
+fn new_var(t: Tape, value: tensor) -> float {
+    let h = t.nvars[0]
+    ta_set(t.vals, h, value)
+    ta_set(t.grads, h, value * 0.0)
+    t.nvars[0] = h + 1.0
+    return h
+}
+
+fn record_op(t: Tape, tag: float, a: float, b: float, out: float) {
+    let k = t.nops[0]
+    t.op[k] = tag
+    t.ia[k] = a
+    t.ib[k] = b
+    t.out[k] = out
+    t.nops[0] = k + 1.0
+}
+
+// Accumulate grad contribution g into Var #h's grad slot.
+fn accum(t: Tape, h: float, g: tensor) {
+    ta_set(t.grads, h, ta_get(t.grads, h) + g)
+}
+
+// ── Differentiable forward ops. Each computes the value, allocates a Var, and
+// records the op. Tags: matmul=1, relu=2, sub=3, mul=4, sum=5.
+
+fn ad_matmul(t: Tape, ha: float, hb: float) -> float {
+    let out = new_var(t, matmul(ta_get(t.vals, ha), ta_get(t.vals, hb)))
+    record_op(t, 1.0, ha, hb, out)
+    return out
+}
+
+fn ad_relu(t: Tape, ha: float) -> float {
+    let out = new_var(t, relu(ta_get(t.vals, ha)))
+    record_op(t, 2.0, ha, 0.0, out)
+    return out
+}
+
+fn ad_sub(t: Tape, ha: float, hb: float) -> float {
+    let out = new_var(t, ta_get(t.vals, ha) - ta_get(t.vals, hb))
+    record_op(t, 3.0, ha, hb, out)
+    return out
+}
+
+fn ad_mul(t: Tape, ha: float, hb: float) -> float {
+    let out = new_var(t, ta_get(t.vals, ha) * ta_get(t.vals, hb))
+    record_op(t, 4.0, ha, hb, out)
+    return out
+}
+
+fn ad_sum(t: Tape, ha: float) -> float {
+    let out = new_var(t, sum(ta_get(t.vals, ha)))
+    record_op(t, 5.0, ha, 0.0, out)
+    return out
+}
+
+// Replay the tape in reverse. Seed the loss Var's grad with 1.0, then for each
+// op (newest first) dispatch on its tag and push grads to its inputs. Because
+// ops were appended in forward (topological) order, walking backwards visits
+// every consumer before its producer — so each output grad is complete when used.
+fn backward(t: Tape, hloss: float) {
+    ta_set(t.grads, hloss, tensor([1.0]))
+    let k = t.nops[0] - 1.0
+    while k >= 0.0 {
+        let tag = t.op[k]
+        let ah = t.ia[k]
+        let bh = t.ib[k]
+        let oh = t.out[k]
+        let go = ta_get(t.grads, oh)
+
+        if tag == 1.0 {
+            // matmul: grad_a += go @ bᵀ ; grad_b += aᵀ @ go
+            let va = ta_get(t.vals, ah)
+            let vb = ta_get(t.vals, bh)
+            accum(t, ah, matmul(go, transpose(vb)))
+            accum(t, bh, matmul(transpose(va), go))
+        } else { if tag == 2.0 {
+            // relu: grad_a += go * step(a)
+            accum(t, ah, go * step(ta_get(t.vals, ah)))
+        } else { if tag == 3.0 {
+            // sub: grad_a += go ; grad_b += -go
+            accum(t, ah, go)
+            accum(t, bh, -go)
+        } else { if tag == 4.0 {
+            // mul (elementwise): grad_a += go * b ; grad_b += go * a
+            let va = ta_get(t.vals, ah)
+            let vb = ta_get(t.vals, bh)
+            accum(t, ah, go * vb)
+            accum(t, bh, go * va)
+        } else { if tag == 5.0 {
+            // sum: distribute the scalar output grad to every input element
+            let va = ta_get(t.vals, ah)
+            accum(t, ah, va * 0.0 + go[0])
+        } } } } }
+
+        k = k - 1.0
+    }
+}
+
+fn main() {
+    let x = tensor([[1.0, 2.0]])
+    let target = tensor([[1.0]])
+
+    let w1 = tensor([[0.1, -0.5],
+                     [0.3, -0.5]])
+    let w2 = tensor([[0.1],
+                     [0.2]])
+    let lr = 0.02
+    let steps = 800
+
+    while steps > 0 {
+        // Build a fresh graph for this step (dynamic tape).
+        let t = make_tape()
+        let hx  = new_var(t, x)
+        let htg = new_var(t, target)
+        let hw1 = new_var(t, w1)
+        let hw2 = new_var(t, w2)
+
+        // forward — written ONCE; no backward written by hand
+        let hpre = ad_matmul(t, hx, hw1)     // x @ W1
+        let hh   = ad_relu(t, hpre)          // relu
+        let ho   = ad_matmul(t, hh, hw2)     // @ W2  -> prediction
+        let hdiff = ad_sub(t, ho, htg)       // pred - target
+        let hsq   = ad_mul(t, hdiff, hdiff)  // squared error
+        let hloss = ad_sum(t, hsq)           // scalar loss
+
+        // gradients, automatically
+        backward(t, hloss)
+
+        // SGD on the leaves
+        w1 = w1 - lr * ta_get(t.grads, hw1)
+        w2 = w2 - lr * ta_get(t.grads, hw2)
+        steps = steps - 1
+    }
+
+    print("final pred (target 1.0):", matmul(relu(matmul(x, w1)), w2))
+    return 0
+}

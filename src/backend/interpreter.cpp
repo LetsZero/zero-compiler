@@ -688,6 +688,55 @@ RuntimeValue Interpreter::exec_instruction(const Instruction& instr) {
             break;
         }
 
+        // ─── Tensor-array: runtime-indexable collection of tensors. The one
+        // autograd primitive that can't be composed from tensor+struct.
+        case OpCode::TENSOR_ARRAY_NEW: {
+            int64_t count = get_value(instr.operands[0]).to_int();
+            if (count < 0) throw std::runtime_error("tensorarray: negative size");
+            auto arr = std::make_shared<std::vector<TensorPtr>>(
+                static_cast<size_t>(count));   // count null slots
+            result = RuntimeValue(std::move(arr));
+            break;
+        }
+
+        case OpCode::TENSOR_ARRAY_GET: {
+            RuntimeValue av = get_value(instr.operands[0]);
+            if (!av.is_tensor_array()) throw std::runtime_error("ta_get: non-array target");
+            const TensorArrayPtr& arr = av.as_tensor_array();
+            int64_t idx = get_value(instr.operands[1]).to_int();
+            if (idx < 0 || static_cast<size_t>(idx) >= arr->size()) {
+                std::ostringstream m;
+                m << "tensorarray index out of range: " << idx
+                  << " not in [0, " << arr->size() << ")";
+                throw std::runtime_error(m.str());
+            }
+            const TensorPtr& t = (*arr)[static_cast<size_t>(idx)];
+            if (!t) {
+                std::ostringstream m;
+                m << "ta_get: slot " << idx << " is empty (never set)";
+                throw std::runtime_error(m.str());
+            }
+            result = RuntimeValue(t);
+            break;
+        }
+
+        case OpCode::TENSOR_ARRAY_SET: {
+            RuntimeValue av = get_value(instr.operands[0]);
+            if (!av.is_tensor_array()) throw std::runtime_error("ta_set: non-array target");
+            const TensorArrayPtr& arr = av.as_tensor_array();
+            int64_t idx = get_value(instr.operands[1]).to_int();
+            if (idx < 0 || static_cast<size_t>(idx) >= arr->size()) {
+                std::ostringstream m;
+                m << "tensorarray index out of range: " << idx
+                  << " not in [0, " << arr->size() << ")";
+                throw std::runtime_error(m.str());
+            }
+            RuntimeValue vv = get_value(instr.operands[2]);
+            if (!vv.is_tensor()) throw std::runtime_error("ta_set: value is not a tensor");
+            (*arr)[static_cast<size_t>(idx)] = vv.as_tensor();
+            break;
+        }
+
         default:
             break;
     }

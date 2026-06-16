@@ -123,6 +123,17 @@ enum class OpCode {
     // TENSOR_INDEX_SET: op0[op1] = op2 (in-place; mutates the tensor buffer).
     TENSOR_INDEX_GET,
     TENSOR_INDEX_SET,
+
+    // Tensor-array: a runtime-indexable collection of whole tensors. This is
+    // the one autograd primitive that genuinely cannot be composed from
+    // tensor+struct (a tensor holds floats, not tensors; struct fields are
+    // compile-time indices). Interpreter-level state — *not* a runtime change.
+    // TENSOR_ARRAY_NEW: result = an array holding `op0` (int) null slots.
+    // TENSOR_ARRAY_GET: result = tensor at op0[op1].
+    // TENSOR_ARRAY_SET: op0[op1] = op2 (in-place; mutates the array).
+    TENSOR_ARRAY_NEW,
+    TENSOR_ARRAY_GET,
+    TENSOR_ARRAY_SET,
 };
 
 inline const char* opcode_name(OpCode op) {
@@ -171,6 +182,9 @@ inline const char* opcode_name(OpCode op) {
         case OpCode::STRUCT_GET: return "struct.get";
         case OpCode::TENSOR_INDEX_GET: return "tensor.index.get";
         case OpCode::TENSOR_INDEX_SET: return "tensor.index.set";
+        case OpCode::TENSOR_ARRAY_NEW: return "tensorarray.new";
+        case OpCode::TENSOR_ARRAY_GET: return "tensorarray.get";
+        case OpCode::TENSOR_ARRAY_SET: return "tensorarray.set";
         default: return "unknown";
     }
 }

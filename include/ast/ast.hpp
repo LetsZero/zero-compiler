@@ -67,6 +67,7 @@ enum class TypeKind {
     VOID,
     TENSOR,
     STRUCT,
+    TENSOR_ARRAY,
     UNKNOWN
 };
 
